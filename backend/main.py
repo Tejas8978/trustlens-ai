@@ -1,15 +1,23 @@
 """
 TrustLens AI — FastAPI Backend Entry Point
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
 from routers import analyze, history
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="TrustLens AI",
     description="AI-powered deepfake & scam detection API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -22,11 +30,6 @@ app.add_middleware(
 
 app.include_router(analyze.router)
 app.include_router(history.router)
-
-
-@app.on_event("startup")
-async def startup():
-    init_db()
 
 
 @app.get("/")

@@ -52,7 +52,7 @@ def _save_scan(db: Session, result: dict, scan_type: str, filename: str | None):
         verdict=result["verdict"],
         summary=result["summary"],
         details=json.dumps([
-            (e.dict() if hasattr(e, "dict") else e)
+            (e.model_dump() if hasattr(e, "model_dump") else (e.dict() if hasattr(e, "dict") else e))
             for e in result["evidence"]
         ]),
     )

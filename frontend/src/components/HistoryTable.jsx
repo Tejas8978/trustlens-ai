@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Clock, Trash2, RefreshCw, Filter } from 'lucide-react';
 import './HistoryTable.css';
 
-const API = '';
+const API = import.meta.env.VITE_API_URL || '';
 
 const VERDICT_COLORS = {
   SAFE: 'var(--green)',

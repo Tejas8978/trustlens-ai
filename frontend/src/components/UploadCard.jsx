@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Upload, Image, Volume2, Video, MessageSquare, Mail, X, FileText } from 'lucide-react';
 import './UploadCard.css';
 
-const API = '';
+const API = import.meta.env.VITE_API_URL || '';
 
 const TABS = [
   { id: 'image', label: 'Image', icon: <Image size={16} />, accept: 'image/*', endpoint: '/api/analyze/image' },
@@ -59,14 +59,22 @@ export default function UploadCard({ onResult, onLoading }) {
       } else {
         const form = new FormData();
         form.append('file', file);
-        res = await axios.post(`${API}${tab.endpoint}`, form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        // Do NOT set Content-Type manually — axios must set it with the correct boundary
+        res = await axios.post(`${API}${tab.endpoint}`, form);
       }
       onResult(res.data);
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || 'Analysis failed. Is the backend running?';
-      setError(msg);
+      const status = err.response?.status;
+      if (!status || status === 502 || status === 503 || err.code === 'ERR_NETWORK') {
+        setError('Cannot connect to the backend. Please start the backend server (port 8000).');
+      } else if (status === 413) {
+        setError('File is too large. Please upload a smaller file.');
+      } else if (status === 422) {
+        setError('Invalid file or input format. Please check what you uploaded.');
+      } else {
+        const msg = err.response?.data?.detail || err.message || 'Analysis failed. Please try again.';
+        setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      }
     } finally {
       onLoading(false);
     }
