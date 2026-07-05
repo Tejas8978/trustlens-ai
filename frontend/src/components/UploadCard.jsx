@@ -1,9 +1,23 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, Image, Volume2, Video, MessageSquare, Mail, X, FileText } from 'lucide-react';
+import { Upload, Image, Volume2, Video, MessageSquare, Mail, X, FileText, Loader } from 'lucide-react';
 import './UploadCard.css';
 
-const API = import.meta.env.VITE_API_URL || '';
+const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+// Wake up the Render backend before analysis (free tier sleeps after inactivity)
+async function wakeUpBackend(retries = 8, delayMs = 3500) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const resp = await axios.get(`${API}/health`, { timeout: 8000 });
+      if (resp.status === 200) return true;
+    } catch (_) {
+      // Still sleeping — wait and retry
+    }
+    if (i < retries - 1) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return false;
+}
 
 const TABS = [
   { id: 'image', label: 'Image', icon: <Image size={16} />, accept: 'image/*', endpoint: '/api/analyze/image' },
@@ -19,6 +33,7 @@ export default function UploadCard({ onResult, onLoading }) {
   const [text, setText] = useState('');
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState('');
+  const [warming, setWarming] = useState(false);
   const fileRef = useRef(null);
 
   const tab = TABS.find(t => t.id === activeTab);
@@ -48,6 +63,26 @@ export default function UploadCard({ onResult, onLoading }) {
       return;
     }
 
+    // Check if backend is reachable — if not, try to wake it up (Render free tier)
+    if (API) {
+      try {
+        await axios.get(`${API}/health`, { timeout: 5000 });
+      } catch (_) {
+        // Backend might be sleeping — show warm-up message and retry
+        setWarming(true);
+        onLoading(false);
+        const alive = await wakeUpBackend();
+        setWarming(false);
+        if (!alive) {
+          setError(
+            'The backend server is unavailable. If deployed on Render free tier, it may have been ' +
+            'shut down. Visit your Render dashboard to restart it, or wait 60s and try again.'
+          );
+          return;
+        }
+      }
+    }
+
     onLoading(true);
     try {
       let res;
@@ -55,18 +90,28 @@ export default function UploadCard({ onResult, onLoading }) {
         const form = new FormData();
         form.append('text', text);
         form.append('mode', activeTab);
-        res = await axios.post(`${API}/api/analyze/text`, form);
+        res = await axios.post(`${API}/api/analyze/text`, form, { timeout: 60000 });
       } else {
         const form = new FormData();
         form.append('file', file);
         // Do NOT set Content-Type manually — axios must set it with the correct boundary
-        res = await axios.post(`${API}${tab.endpoint}`, form);
+        res = await axios.post(`${API}${tab.endpoint}`, form, { timeout: 60000 });
       }
       onResult(res.data);
     } catch (err) {
       const status = err.response?.status;
-      if (!status || status === 502 || status === 503 || err.code === 'ERR_NETWORK') {
-        setError('Cannot connect to the backend. Please start the backend server (port 8000).');
+      if (!status || status === 502 || status === 503 || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
+        if (!API) {
+          setError(
+            'No backend URL configured. Set VITE_API_URL in your Vercel environment variables ' +
+            'to point to your deployed backend (e.g. https://your-app.onrender.com).'
+          );
+        } else {
+          setError(
+            'Backend returned a gateway error (502/503). The server may be restarting — ' +
+            'wait 30 seconds and try again.'
+          );
+        }
       } else if (status === 413) {
         setError('File is too large. Please upload a smaller file.');
       } else if (status === 422) {
@@ -164,6 +209,13 @@ export default function UploadCard({ onResult, onLoading }) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {warming && (
+          <div className="upload-warming">
+            <Loader size={14} className="spin-icon" />
+            ⏳ Backend is warming up (Render free tier cold start)… please wait ~30s
           </div>
         )}
 

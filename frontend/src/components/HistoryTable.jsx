@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Clock, Trash2, RefreshCw, Filter } from 'lucide-react';
 import './HistoryTable.css';
 
-const API = import.meta.env.VITE_API_URL || '';
+const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 const VERDICT_COLORS = {
   SAFE: 'var(--green)',
@@ -30,10 +30,14 @@ export default function HistoryTable() {
     setError('');
     try {
       const params = filter ? { scan_type: filter } : {};
-      const res = await axios.get(`${API}/api/history/`, { params });
+      const res = await axios.get(`${API}/api/history/`, { params, timeout: 15000 });
       setLogs(res.data);
     } catch (err) {
-      setError('Could not load history. Is the backend running?');
+      if (!API) {
+        setError('No backend URL configured. Set VITE_API_URL in your Vercel environment variables.');
+      } else {
+        setError('Could not load history. Backend may be sleeping — try refreshing in 30s.');
+      }
     } finally {
       setLoading(false);
     }
