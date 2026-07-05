@@ -1,0 +1,140 @@
+.result-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-6);
+  gap: var(--space-6);
+}
+
+.result-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-type-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: var(--space-2);
+}
+
+.result-filename {
+  margin-bottom: var(--space-2);
+}
+
+.result-summary {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.result-gauge {
+  flex-shrink: 0;
+}
+
+/* Recommendations */
+.recommendations-card {
+  padding: var(--space-6);
+}
+
+.rec-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 1rem;
+  margin-bottom: var(--space-4);
+}
+
+.rec-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rec-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot-yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+.dot-red    { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+/* Prompt */
+.prompt-card {
+  overflow: hidden;
+}
+
+.prompt-header {
+  cursor: pointer;
+}
+
+.prompt-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--purple), var(--magenta));
+  color: white;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.prompt-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.prompt-body {
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.prompt-text {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.copy-btn {
+  align-self: flex-start;
+  font-size: 0.8rem;
+  padding: var(--space-2) var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .result-header {
+    flex-direction: column;
+    align-items: center;
+  }
+}

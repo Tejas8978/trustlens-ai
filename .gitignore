@@ -1,0 +1,38 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+
+# Local databases
+*.db
+*.sqlite
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# Python temporary files and caches
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.suo
+*.ntuser*
+*.DAT*
+*.LOG*
