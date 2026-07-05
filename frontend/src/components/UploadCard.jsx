@@ -3,7 +3,21 @@ import axios from 'axios';
 import { Upload, Image, Volume2, Video, MessageSquare, Mail, X, FileText, Loader } from 'lucide-react';
 import './UploadCard.css';
 
-const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+function getApiUrl() {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return '';
+  }
+  const stored = localStorage.getItem('VITE_API_URL');
+  if (stored) return stored.replace(/\/$/, '');
+  
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) return envUrl.replace(/\/$/, '');
+  
+  return 'https://trustlens-backend.onrender.com';
+}
+
+const API = getApiUrl();
+
 
 // Wake up the Render backend before analysis (free tier sleeps after inactivity)
 async function wakeUpBackend(retries = 8, delayMs = 3500) {
@@ -103,13 +117,13 @@ export default function UploadCard({ onResult, onLoading }) {
       if (!status || status === 502 || status === 503 || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
         if (!API) {
           setError(
-            'No backend URL configured. Set VITE_API_URL in your Vercel environment variables ' +
-            'to point to your deployed backend (e.g. https://your-app.onrender.com).'
+            'Cannot connect to the local backend server. Please make sure the backend is running ' +
+            'on port 8000 (run start-backend.ps1).'
           );
         } else {
           setError(
             'Backend returned a gateway error (502/503). The server may be restarting — ' +
-            'wait 30 seconds and try again.'
+            'wait 30 seconds and try again. Or update the backend URL using the settings cog at the top.'
           );
         }
       } else if (status === 413) {

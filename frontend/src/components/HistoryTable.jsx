@@ -3,7 +3,21 @@ import axios from 'axios';
 import { Clock, Trash2, RefreshCw, Filter } from 'lucide-react';
 import './HistoryTable.css';
 
-const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+function getApiUrl() {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return '';
+  }
+  const stored = localStorage.getItem('VITE_API_URL');
+  if (stored) return stored.replace(/\/$/, '');
+  
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) return envUrl.replace(/\/$/, '');
+  
+  return 'https://trustlens-backend.onrender.com';
+}
+
+const API = getApiUrl();
+
 
 const VERDICT_COLORS = {
   SAFE: 'var(--green)',
@@ -34,9 +48,9 @@ export default function HistoryTable() {
       setLogs(res.data);
     } catch (err) {
       if (!API) {
-        setError('No backend URL configured. Set VITE_API_URL in your Vercel environment variables.');
+        setError('Could not connect to the local backend. Please make sure uvicorn is running on port 8000.');
       } else {
-        setError('Could not load history. Backend may be sleeping — try refreshing in 30s.');
+        setError('Could not load history. Backend may be sleeping — try refreshing in 30s or check your Settings configuration.');
       }
     } finally {
       setLoading(false);
