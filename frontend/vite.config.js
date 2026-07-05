@@ -3,9 +3,14 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  css: {
+    // Force PostCSS transformer — Vite 8 defaults to lightningcss which uses
+    // a native binary that crashes on Vercel's Linux build environment
+    // (only the Windows binary is installed in node_modules).
+    transformer: 'postcss',
+  },
   build: {
-    // Disable CSS minification — Vite 8 uses lightningcss by default,
-    // but the Linux binary is not installed. Setting false avoids the crash.
+    // Also disable CSS minification to avoid any lightningcss binary loading.
     cssMinify: false,
   },
   server: {
