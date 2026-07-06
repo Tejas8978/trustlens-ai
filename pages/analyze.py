@@ -10,10 +10,10 @@ if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
 try:
-    from analyzers.image_analyzer import ImageAnalyzer
-    from analyzers.video_analyzer import VideoAnalyzer
-    from analyzers.audio_analyzer import AudioAnalyzer
-    from analyzers.text_analyzer import TextAnalyzer
+    from analyzers.image_analyzer import analyze_image
+    from analyzers.video_analyzer import analyze_video
+    from analyzers.audio_analyzer import analyze_audio
+    from analyzers.text_analyzer import analyze_text
     from database import add_history, init_db
 except ImportError as e:
     st.error(f"Error loading analyzers: {e}")
@@ -42,8 +42,11 @@ def show():
                         tmp.write(uploaded_image.getbuffer())
                         tmp_path = tmp.name
                     
-                    analyzer = ImageAnalyzer()
-                    result = analyzer.analyze(tmp_path)
+                    # Read back as bytes
+                    with open(tmp_path, "rb") as f:
+                        image_bytes = f.read()
+                    
+                    result = analyze_image(image_bytes, uploaded_image.name)
                     
                     # Display results
                     col1, col2 = st.columns(2)
@@ -77,8 +80,11 @@ def show():
                         tmp.write(uploaded_video.getbuffer())
                         tmp_path = tmp.name
                     
-                    analyzer = VideoAnalyzer()
-                    result = analyzer.analyze(tmp_path)
+                    # Read back as bytes
+                    with open(tmp_path, "rb") as f:
+                        video_bytes = f.read()
+                    
+                    result = analyze_video(video_bytes, uploaded_video.name)
                     
                     display_results(result, "Video")
                     
@@ -106,8 +112,11 @@ def show():
                         tmp.write(uploaded_audio.getbuffer())
                         tmp_path = tmp.name
                     
-                    analyzer = AudioAnalyzer()
-                    result = analyzer.analyze(tmp_path)
+                    # Read back as bytes
+                    with open(tmp_path, "rb") as f:
+                        audio_bytes = f.read()
+                    
+                    result = analyze_audio(audio_bytes, uploaded_audio.name)
                     
                     display_results(result, "Audio")
                     
@@ -130,8 +139,7 @@ def show():
         
         if text_input and st.button("Analyze Text"):
             with st.spinner("Analyzing text..."):
-                analyzer = TextAnalyzer()
-                result = analyzer.analyze(text_input)
+                result = analyze_text(text_input)
                 
                 display_results(result, "Text")
                 
