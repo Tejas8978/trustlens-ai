@@ -1,5 +1,4 @@
 {
-    "buildCommand": "cd backend && pip install -r requirements.txt",
     "services": {
         "frontend": {
             "root": "frontend",
