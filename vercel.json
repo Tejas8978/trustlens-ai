@@ -1,32 +1,7 @@
 {
-    "buildCommand": "cd backend && pip install --no-cache-dir -r requirements.txt",
+    "buildCommand": "pip install -r requirements.txt",
+    "runtime": "python@3.12",
     "env": {
         "PIP_DEFAULT_TIMEOUT": "100"
-    },
-    "services": {
-        "frontend": {
-            "root": "frontend",
-            "framework": "vite"
-        },
-        "backend": {
-            "root": "backend",
-            "entrypoint": "main:app"
-        }
-    },
-    "rewrites": [
-        {
-            "source": "/api(/.*)?",
-            "destination": {
-                "type": "service",
-                "service": "backend"
-            }
-        },
-        {
-            "source": "/(.*)",
-            "destination": {
-                "type": "service",
-                "service": "frontend"
-            }
-        }
-    ]
+    }
 }
