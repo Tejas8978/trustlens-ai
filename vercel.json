@@ -1,6 +1,4 @@
 {
-    "buildCommand": "pip install -r requirements.txt",
-    "runtime": "python@3.12",
     "env": {
         "PIP_DEFAULT_TIMEOUT": "100"
     }
