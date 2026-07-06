@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
 import './ExplainCard.css';
 

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import UploadCard from '../components/UploadCard';
 import ResultPanel from '../components/ResultPanel';
-import { Shield, Loader } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import './Analyze.css';
 
 export default function Analyze() {

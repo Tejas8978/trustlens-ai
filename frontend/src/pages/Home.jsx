@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Image, Volume2, Video, MessageSquare, Mail, ArrowRight, Zap } from 'lucide-react';
 import './Home.css';

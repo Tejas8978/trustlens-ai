@@ -4,10 +4,11 @@
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(5, 13, 26, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, rgba(6,12,22,0.55), rgba(4,8,16,0.3));
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 6px 30px rgba(2,6,12,0.6), 0 2px 8px rgba(0,0,0,0.5);
 }
 
 .navbar-inner {
@@ -33,13 +34,13 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--cyan-glow), var(--purple-glow));
-  border: 1px solid var(--cyan-border);
+  background: linear-gradient(135deg, rgba(0,245,255,0.12), rgba(123,47,255,0.10));
+  border: 1px solid rgba(255,255,255,0.03);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--cyan);
-  box-shadow: var(--shadow-cyan);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.6), 0 0 18px rgba(0,245,255,0.06) inset;
 }
 
 .brand-text {
@@ -79,17 +80,30 @@
 
 .nav-link:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  transform: translateY(-2px);
 }
 
 .nav-link.active {
   color: var(--cyan);
-  background: var(--cyan-glow);
+  background: linear-gradient(90deg, rgba(0,245,255,0.06), rgba(123,47,255,0.04));
+  box-shadow: 0 8px 26px rgba(0,245,255,0.06);
 }
 
 .nav-cta {
-  font-size: 0.8rem;
-  padding: var(--space-2) var(--space-5);
+  font-size: 0.9rem;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+  color: var(--bg-void);
+  box-shadow: 0 10px 30px rgba(0,245,255,0.12), 0 6px 18px rgba(123,47,255,0.08);
+  border: 1px solid rgba(255,255,255,0.03);
+  transition: transform var(--ease-fast), box-shadow var(--ease-fast);
+}
+
+.nav-cta:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 60px rgba(0,245,255,0.16), 0 10px 30px rgba(123,47,255,0.12);
 }
 
 /* Settings Dropdown Panel */

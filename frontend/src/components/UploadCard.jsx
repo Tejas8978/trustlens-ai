@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import axios from 'axios';
 import { Upload, Image, Volume2, Video, MessageSquare, Mail, X, FileText, Loader } from 'lucide-react';
 import './UploadCard.css';
@@ -18,6 +18,20 @@ function getApiUrl() {
 
 const API = getApiUrl();
 
+function formatErrorMessage(msg) {
+  if (!msg) return 'Analysis failed. Please try again.';
+  if (typeof msg === 'string') return msg.trim();
+  if (Array.isArray(msg)) return msg.map(formatErrorMessage).join('\n');
+  if (typeof msg === 'object') {
+    if (msg.detail) return formatErrorMessage(msg.detail);
+    if (msg.message) return formatErrorMessage(msg.message);
+    return Object.entries(msg)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => `${key}: ${formatErrorMessage(value)}`)
+      .join('\n');
+  }
+  return String(msg);
+}
 
 // Wake up the Render backend before analysis (free tier sleeps after inactivity)
 async function wakeUpBackend(retries = 8, delayMs = 3500) {
@@ -25,7 +39,7 @@ async function wakeUpBackend(retries = 8, delayMs = 3500) {
     try {
       const resp = await axios.get(`${API}/health`, { timeout: 8000 });
       if (resp.status === 200) return true;
-    } catch (_) {
+    } catch (_err) {
       // Still sleeping — wait and retry
     }
     if (i < retries - 1) await new Promise(r => setTimeout(r, delayMs));
@@ -81,7 +95,7 @@ export default function UploadCard({ onResult, onLoading }) {
     if (API) {
       try {
         await axios.get(`${API}/health`, { timeout: 5000 });
-      } catch (_) {
+      } catch (_err) {
         // Backend might be sleeping — show warm-up message and retry
         setWarming(true);
         onLoading(false);
@@ -131,8 +145,8 @@ export default function UploadCard({ onResult, onLoading }) {
       } else if (status === 422) {
         setError('Invalid file or input format. Please check what you uploaded.');
       } else {
-        const msg = err.response?.data?.detail || err.message || 'Analysis failed. Please try again.';
-        setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        const msg = err.response?.data?.detail || err.response?.data || err.message || 'Analysis failed. Please try again.';
+        setError(formatErrorMessage(msg));
       }
     } finally {
       onLoading(false);

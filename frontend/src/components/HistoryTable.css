@@ -86,7 +86,10 @@
   padding: var(--space-6);
   color: var(--red);
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  white-space: pre-line;
+  word-break: break-word;
+  line-height: 1.5;
 }
 
 .type-badge {

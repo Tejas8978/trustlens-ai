@@ -2,6 +2,7 @@
 Analysis router — handles all /api/analyze/* endpoints
 """
 import json
+from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
 from database import get_db, ScanLog
@@ -44,7 +45,7 @@ AI_PROMPTS = {
 }
 
 
-def _save_scan(db: Session, result: dict, scan_type: str, filename: str | None):
+def _save_scan(db: Session, result: dict, scan_type: str, filename: Optional[str]):
     log = ScanLog(
         scan_type=scan_type,
         filename=filename,

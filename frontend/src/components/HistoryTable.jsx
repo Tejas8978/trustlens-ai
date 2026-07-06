@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Clock, Trash2, RefreshCw, Filter } from 'lucide-react';
 import './HistoryTable.css';
@@ -39,14 +39,14 @@ export default function HistoryTable() {
   const [filter, setFilter] = useState('');
   const [error, setError] = useState('');
 
-  async function fetchLogs() {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const params = filter ? { scan_type: filter } : {};
       const res = await axios.get(`${API}/api/history/`, { params, timeout: 15000 });
       setLogs(res.data);
-    } catch (err) {
+    } catch (_err) {
       if (!API) {
         setError('Could not connect to the local backend. Please make sure uvicorn is running on port 8000.');
       } else {
@@ -55,16 +55,18 @@ export default function HistoryTable() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
 
-  useEffect(() => { fetchLogs(); }, [filter]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   async function deleteScan(id) {
     try {
       await axios.delete(`${API}/api/history/${id}`);
       setLogs(logs.filter(l => l.id !== id));
     } catch (e) {
-      console.error('Delete failed');
+      console.error('Delete failed', e);
+      setError('Failed to delete this scan. Refresh the page and try again.');
     }
   }
 
@@ -147,7 +149,7 @@ export default function HistoryTable() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log, i) => (
+              {logs.map((log) => (
                 <tr key={log.id}>
                   <td className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
                     {log.id}

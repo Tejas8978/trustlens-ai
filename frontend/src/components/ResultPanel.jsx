@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import RiskGauge from './RiskGauge';
 import ExplainCard from './ExplainCard';
-import { Shield, AlertTriangle, CheckCircle, ChevronDown, Copy, Check } from 'lucide-react';
+import { Shield, ChevronDown, Copy, Check } from 'lucide-react';
 import './ResultPanel.css';
 
 const TYPE_LABELS = {

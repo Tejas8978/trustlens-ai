@@ -1,4 +1,3 @@
-import React from 'react';
 import HistoryTable from '../components/HistoryTable';
 import { Clock } from 'lucide-react';
 import './History.css';

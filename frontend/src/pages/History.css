@@ -8,7 +8,7 @@
 
 .history-header {
   text-align: center;
-  padding: var(--space-12) var(--space-6) var(--space-8);
+  padding: calc(var(--space-10) + 8px) var(--space-6) var(--space-8);
 }
 
 .history-eyebrow {
@@ -31,5 +31,12 @@
 }
 
 .history-content {
-  padding-top: var(--space-4);
+  padding-top: var(--space-6);
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--space-6);
+}
+
+@media (max-width: 980px) {
+  .history-content { grid-template-columns: 1fr; }
 }

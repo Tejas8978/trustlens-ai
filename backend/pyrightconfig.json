@@ -1,0 +1,17 @@
+{
+  "include": ["."],
+  "exclude": ["__pycache__"],
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none",
+  "useLibraryCodeForTypes": true,
+  "venvPath": ".",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.11"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
-from datetime import datetime
+from datetime import datetime, timezone
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./trustlens.db"
 
@@ -21,7 +21,7 @@ class ScanLog(Base):
     verdict = Column(String, nullable=False)            # SAFE | SUSPICIOUS | HIGH_RISK
     summary = Column(Text, nullable=False)
     details = Column(Text, nullable=True)               # JSON string
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def get_db():
