@@ -1,4 +1,5 @@
 {
+    "buildCommand": "cd backend && pip install --no-cache-dir -r requirements.txt",
     "env": {
         "PIP_DEFAULT_TIMEOUT": "100"
     },
