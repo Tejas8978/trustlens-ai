@@ -19,9 +19,6 @@ dependencies = [
     "opencv-python-headless>=4.9.0.80"
 ]
 
-[tool.vercel]
-entrypoint = "main:app"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
