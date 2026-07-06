@@ -34,3 +34,57 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+
+
+def add_history(data: dict):
+    """Add a scan to the database"""
+    try:
+        db = SessionLocal()
+        scan = ScanLog(
+            scan_type=data.get("type", "unknown"),
+            filename=data.get("filename", ""),
+            risk_score=float(data.get("confidence", 0)),
+            verdict=data.get("risk_level", "SUSPICIOUS").upper(),
+            summary=str(data.get("details", "")),
+            details=str(data)
+        )
+        db.add(scan)
+        db.commit()
+        db.close()
+    except Exception as e:
+        print(f"Error adding to history: {e}")
+
+
+def get_history() -> list:
+    """Get all scans from the database"""
+    try:
+        db = SessionLocal()
+        scans = db.query(ScanLog).order_by(ScanLog.created_at.desc()).all()
+        result = []
+        for scan in scans:
+            result.append({
+                "id": scan.id,
+                "type": scan.scan_type,
+                "filename": scan.filename,
+                "risk_level": scan.verdict,
+                "confidence": scan.risk_score,
+                "details": scan.summary,
+                "created_at": scan.created_at
+            })
+        db.close()
+        return result
+    except Exception as e:
+        print(f"Error getting history: {e}")
+        return []
+
+
+def delete_history():
+    """Clear all scans from the database"""
+    try:
+        db = SessionLocal()
+        db.query(ScanLog).delete()
+        db.commit()
+        db.close()
+    except Exception as e:
+        print(f"Error deleting history: {e}")
+
