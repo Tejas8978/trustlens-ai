@@ -1,4 +1,7 @@
 {
+    "env": {
+        "PIP_DEFAULT_TIMEOUT": "100"
+    },
     "services": {
         "frontend": {
             "root": "frontend",
