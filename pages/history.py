@@ -4,9 +4,15 @@ import sys
 import pandas as pd
 
 # Add backend to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+backend_path = Path(__file__).parent.parent / "backend"
+if str(backend_path) not in sys.path:
+    sys.path.insert(0, str(backend_path))
 
-from database import get_history, delete_history, init_db
+try:
+    from database import get_history, delete_history, init_db
+except ImportError as e:
+    st.error(f"Error loading database: {e}")
+    st.stop()
 
 def show():
     """Display history page"""

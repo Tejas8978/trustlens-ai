@@ -5,13 +5,20 @@ from pathlib import Path
 import sys
 
 # Add backend to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+backend_path = Path(__file__).parent.parent / "backend"
+if str(backend_path) not in sys.path:
+    sys.path.insert(0, str(backend_path))
 
-from analyzers.image_analyzer import ImageAnalyzer
-from analyzers.video_analyzer import VideoAnalyzer
-from analyzers.audio_analyzer import AudioAnalyzer
-from analyzers.text_analyzer import TextAnalyzer
-from database import add_history, init_db
+try:
+    from analyzers.image_analyzer import ImageAnalyzer
+    from analyzers.video_analyzer import VideoAnalyzer
+    from analyzers.audio_analyzer import AudioAnalyzer
+    from analyzers.text_analyzer import TextAnalyzer
+    from database import add_history, init_db
+except ImportError as e:
+    st.error(f"Error loading analyzers: {e}")
+    st.info("Make sure all backend dependencies are installed.")
+    st.stop()
 
 def show():
     """Display analyze page"""
