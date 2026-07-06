@@ -62,7 +62,7 @@
   min-height: 560px;
 }
 
-/* Scan Loading */
+/* ── Scan Loading Card ─────────────────────────────────────────── */
 .scan-loading,
 .analyze-placeholder {
   width: 100%;
@@ -79,58 +79,189 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-5);
-  padding: var(--space-10);
+  padding: var(--space-10) var(--space-8);
   text-align: center;
+  animation: cardFadeIn 0.4s ease both;
 }
 
-.scan-animation {
+@keyframes cardFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Radar Container ──────────────────────────────────────────── */
+.radar-container {
   position: relative;
-  width: 100px;
-  height: 100px;
+  width: 160px;
+  height: 160px;
+  flex-shrink: 0;
+}
+
+/* Concentric rings */
+.radar-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,245,255,0.15);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.radar-ring-1 { width: 160px; height: 160px; border-color: rgba(0,245,255,0.12); animation: radarPing 2.4s ease-out infinite; }
+.radar-ring-2 { width: 110px; height: 110px; border-color: rgba(0,245,255,0.18); animation: radarPing 2.4s 0.6s ease-out infinite; }
+.radar-ring-3 { width:  60px; height:  60px; border-color: rgba(0,245,255,0.25); animation: radarPing 2.4s 1.2s ease-out infinite; }
+
+@keyframes radarPing {
+  0%   { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+  80%  { opacity: 0.05; transform: translate(-50%, -50%) scale(1.25); }
+  100% { opacity: 0; }
+}
+
+/* Sweep line */
+.radar-sweep {
+  position: absolute;
+  width: 80px;
+  height: 2px;
+  top: 50%; left: 50%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, transparent, rgba(0,245,255,0.8));
+  border-radius: 0 4px 4px 0;
+  animation: radarSweep 2s linear infinite;
+}
+
+/* Sweep fan (pseudo-element) */
+.radar-sweep::before {
+  content: '';
+  position: absolute;
+  left: 0; top: -40px;
+  width: 80px;
+  height: 80px;
+  background: conic-gradient(
+    from 0deg at 0 100%,
+    rgba(0,245,255,0.18) 0deg,
+    transparent 60deg
+  );
+  border-radius: 0 80px 0 0;
+  pointer-events: none;
+}
+
+@keyframes radarSweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Center circle */
+.radar-center {
+  position: absolute;
+  width: 52px; height: 52px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,245,255,0.18), rgba(6,12,24,0.9) 65%);
+  border: 1px solid rgba(0,245,255,0.3);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--cyan);
+  z-index: 2;
+  animation: centerPulse 2s ease-in-out infinite;
 }
 
-.scan-ring {
+@keyframes centerPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(0,245,255,0.25); }
+  50%       { box-shadow: 0 0 24px rgba(0,245,255,0.5); }
+}
+
+/* Blip dots — random positions around the radar */
+.radar-blip {
   position: absolute;
+  width: 7px; height: 7px;
   border-radius: 50%;
-  border: 3px solid transparent;
-  border-top-color: var(--cyan);
-  animation: spin 1.2s linear infinite;
+  background: var(--cyan);
+  z-index: 3;
 }
 
-.scan-ring { width: 100px; height: 100px; }
-.scan-ring-2 { width: 72px; height: 72px; border-top-color: var(--purple); animation-duration: 0.9s; animation-direction: reverse; }
-.scan-ring-3 { width: 46px; height: 46px; border-top-color: var(--magenta); animation-duration: 1.5s; }
+.blip-1 { top: 28%; left: 68%; animation: blipFade 2.4s 0.5s ease-in-out infinite; }
+.blip-2 { top: 62%; left: 24%; animation: blipFade 2.4s 1.2s ease-in-out infinite; }
+.blip-3 { top: 38%; left: 38%; animation: blipFade 2.4s 1.8s ease-in-out infinite; }
 
-.scan-loading h3 { color: var(--text-primary); font-size: 1.4rem; }
-.scan-loading p  { font-size: 0.95rem; color: var(--text-secondary); }
+@keyframes blipFade {
+  0%   { opacity: 0; transform: scale(0.5); }
+  20%  { opacity: 1; transform: scale(1.2); box-shadow: 0 0 10px var(--cyan); }
+  80%  { opacity: 0.6; }
+  100% { opacity: 0; transform: scale(0.5); }
+}
 
+/* Scan title */
+.scan-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.scan-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ── Step List ────────────────────────────────────────────────── */
 .scan-steps {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   width: 100%;
-  max-width: 260px;
+  max-width: 280px;
+  text-align: left;
 }
 
 .scan-step {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  font-size: 0.85rem;
   font-family: var(--font-mono);
+  transition: color 0.3s ease;
+  padding: 4px 0;
 }
 
-.scan-step-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, var(--cyan), var(--purple));
-  animation: blink 1.2s ease-in-out infinite;
+.step-done {
+  color: var(--green);
+}
+
+.step-active {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.step-pending {
+  color: var(--text-dim);
+}
+
+.step-indicator {
+  width: 18px;
+  text-align: center;
   flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.step-label {
+  line-height: 1.4;
+}
+
+/* Spinning step indicator */
+.step-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(0,245,255,0.3);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Placeholder */

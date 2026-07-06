@@ -1,29 +1,141 @@
+/* ── RiskGauge Wrapper ────────────────────────────────────────── */
 .risk-gauge-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
+  gap: 12px;
+  position: relative;
+  padding: 12px;
 }
 
-.risk-gauge-canvas {
-  max-width: 220px;
+/* Glow ring behind the SVG */
+.gauge-glow-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-color, rgba(0,245,255,0.1)) 0%, transparent 68%);
+  animation: gaugeGlowPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.gauge-verdict {
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
+@keyframes gaugeGlowPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.06); }
 }
 
-.verdict-dot {
-  width: 8px;
-  height: 8px;
+/* Danger-specific stronger pulse */
+.gauge-danger .gauge-glow-ring {
+  animation: gaugeGlowPulse 1.4s ease-in-out infinite;
+}
+
+/* SVG */
+.risk-gauge-svg {
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+  filter: drop-shadow(0 0 14px var(--arc-color, rgba(0,245,255,0.2)));
+}
+
+/* Fill arc entrance */
+.gauge-fill-arc {
+  animation: arcReveal 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes arcReveal {
+  from { stroke-dasharray: 0 9999; opacity: 0; }
+  to   { stroke-dasharray: unset; opacity: 1; }
+}
+
+/* Needle dot pulse */
+.gauge-needle-dot {
+  animation: needlePop 0.4s 1.2s cubic-bezier(0.22, 1, 0.36, 1) both, needlePulse 1.8s 1.6s ease-in-out infinite;
+}
+
+@keyframes needlePop {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+@keyframes needlePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* Score text pop */
+.gauge-score-text {
+  animation: scorePop 0.6s 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes scorePop {
+  from { font-size: 22px; opacity: 0; }
+  to   { font-size: 38px; opacity: 1; }
+}
+
+/* ── Verdict Badge ────────────────────────────────────────────── */
+.gauge-verdict-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 5px 14px;
+  border-radius: 100px;
+  border: 1px solid transparent;
+  animation: badgeFadeIn 0.5s 1.4s ease both;
+}
+
+@keyframes badgeFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.gauge-verdict-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Safe */
+.gauge-safe .gauge-verdict-badge {
+  color: #00FF88;
+  background: rgba(0,255,136,0.08);
+  border-color: rgba(0,255,136,0.3);
+  box-shadow: 0 0 12px rgba(0,255,136,0.15);
+}
+
+/* Suspicious */
+.gauge-warn .gauge-verdict-badge {
+  color: #FFD600;
+  background: rgba(255,214,0,0.08);
+  border-color: rgba(255,214,0,0.35);
+  box-shadow: 0 0 12px rgba(255,214,0,0.2);
+}
+
+/* High Risk */
+.gauge-danger .gauge-verdict-badge {
+  color: #FF2052;
+  background: rgba(255,32,82,0.1);
+  border-color: rgba(255,32,82,0.4);
+  box-shadow: 0 0 16px rgba(255,32,82,0.3);
+  animation: badgeFadeIn 0.5s 1.4s ease both, verdictAlarm 1.6s 2s ease-in-out infinite;
+}
+
+@keyframes verdictAlarm {
+  0%, 100% { box-shadow: 0 0 16px rgba(255,32,82,0.3); }
+  50%       { box-shadow: 0 0 28px rgba(255,32,82,0.6); }
+}
+
+/* Blink dot */
+.gauge-verdict-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: currentColor;
-  display: inline-block;
-  animation: blink 1.5s ease-in-out infinite;
+  animation: blinkDot 1.4s ease-in-out infinite;
 }
 
-@keyframes blink {
+@keyframes blinkDot {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
+  50%       { opacity: 0.25; }
 }

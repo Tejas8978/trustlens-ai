@@ -70,10 +70,11 @@ def show():
     with col1:
         st.metric("Total Analyses", len(history))
     with col2:
-        high_risk = len([h for h in history if h.get("risk_level", "").lower() == "high"])
+        high_risk = len([h for h in history if "high" in h.get("risk_level", "").lower()])
         st.metric("High Risk", high_risk)
     with col3:
-        avg_confidence = df["confidence"].mean() if "confidence" in df.columns else 0
+        raw_avg = df["confidence"].mean() if "confidence" in df.columns else 0
+        avg_confidence = raw_avg / 100.0 if raw_avg > 1.0 else raw_avg
         st.metric("Avg Confidence", f"{avg_confidence:.1%}")
     with col4:
         type_counts = df["type"].value_counts()

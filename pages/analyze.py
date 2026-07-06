@@ -63,8 +63,8 @@ def show():
                     add_history({
                         "type": "image",
                         "filename": uploaded_image.name,
-                        "risk_level": result.get("risk_level", "unknown"),
-                        "confidence": result.get("confidence", 0),
+                        "risk_level": result.get("risk_level", result.get("verdict", "unknown")),
+                        "confidence": result.get("risk_score", 0),
                         "details": str(result)
                     })
                     
@@ -95,8 +95,8 @@ def show():
                     add_history({
                         "type": "video",
                         "filename": uploaded_video.name,
-                        "risk_level": result.get("risk_level", "unknown"),
-                        "confidence": result.get("confidence", 0),
+                        "risk_level": result.get("risk_level", result.get("verdict", "unknown")),
+                        "confidence": result.get("risk_score", 0),
                         "details": str(result)
                     })
                     
@@ -127,8 +127,8 @@ def show():
                     add_history({
                         "type": "audio",
                         "filename": uploaded_audio.name,
-                        "risk_level": result.get("risk_level", "unknown"),
-                        "confidence": result.get("confidence", 0),
+                        "risk_level": result.get("risk_level", result.get("verdict", "unknown")),
+                        "confidence": result.get("risk_score", 0),
                         "details": str(result)
                     })
                     
@@ -150,8 +150,8 @@ def show():
                 add_history({
                     "type": "text",
                     "filename": "text_analysis",
-                    "risk_level": result.get("risk_level", "unknown"),
-                    "confidence": result.get("confidence", 0),
+                    "risk_level": result.get("risk_level", result.get("verdict", "unknown")),
+                    "confidence": result.get("risk_score", 0),
                     "details": str(result)
                 })
 
@@ -161,8 +161,8 @@ def display_results(result, analysis_type):
     st.markdown("---")
     st.subheader("📊 Analysis Results")
     
-    risk_level = result.get("risk_level", "unknown")
-    confidence = result.get("confidence", 0)
+    risk_level = result.get("risk_level", result.get("verdict", "unknown"))
+    confidence = result.get("risk_score", 0)
     
     # Get display status
     status = get_risk_status(risk_level)

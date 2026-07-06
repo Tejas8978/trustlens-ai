@@ -1,134 +1,174 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './RiskGauge.css';
 
-const VERDICT_LABELS = {
-  SAFE: { label: 'SAFE', color: '#00FF88' },
-  SUSPICIOUS: { label: 'SUSPICIOUS', color: '#FFD600' },
-  HIGH_RISK: { label: 'HIGH RISK', color: '#FF2052' },
+const VERDICT_META = {
+  SAFE:      { label: 'SAFE',      color: '#00FF88', glow: 'rgba(0,255,136,0.35)',  icon: '✓', cls: 'gauge-safe' },
+  SUSPICIOUS:{ label: 'SUSPICIOUS',color: '#FFD600', glow: 'rgba(255,214,0,0.35)',  icon: '⚠', cls: 'gauge-warn' },
+  HIGH_RISK: { label: 'HIGH RISK', color: '#FF2052', glow: 'rgba(255,32,82,0.45)',  icon: '✕', cls: 'gauge-danger' },
 };
 
-function getScoreColor(score) {
-  if (score >= 70) return '#FF2052';
-  if (score >= 40) return '#FFD600';
-  return '#00FF88';
+// SVG arc helper
+function describeArc(cx, cy, r, startDeg, endDeg) {
+  const toRad = d => (d * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(toRad(startDeg));
+  const y1 = cy + r * Math.sin(toRad(startDeg));
+  const x2 = cx + r * Math.cos(toRad(endDeg));
+  const y2 = cy + r * Math.sin(toRad(endDeg));
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
 }
 
 export default function RiskGauge({ score = 0, verdict = 'SAFE' }) {
-  const canvasRef = useRef(null);
+  const [displayScore, setDisplayScore] = useState(0);
   const animRef = useRef(null);
-  const currentScore = useRef(0);
+  const meta = VERDICT_META[verdict] || VERDICT_META.SAFE;
 
+  // Animate score counter from 0 → target
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const SIZE = 220;
-    canvas.width = SIZE;
-    canvas.height = SIZE;
-
-    const cx = SIZE / 2;
-    const cy = SIZE / 2 + 20;
-    const R = 80;
-    const START = Math.PI;
-    const END = 2 * Math.PI;
-
-    const target = score;
-    const color = getScoreColor(score);
-
-    function drawGauge(val) {
-      ctx.clearRect(0, 0, SIZE, SIZE);
-
-      // Track
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, START, END);
-      ctx.strokeStyle = 'rgba(0,245,255,0.08)';
-      ctx.lineWidth = 16;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-
-      // Zone bands (subtle)
-      const zones = [
-        { end: 0.4, color: 'rgba(0,255,136,0.15)' },
-        { end: 0.7, color: 'rgba(255,214,0,0.15)' },
-        { end: 1.0, color: 'rgba(255,32,82,0.15)' },
-      ];
-      let prevFrac = 0;
-      zones.forEach(z => {
-        ctx.beginPath();
-        ctx.arc(cx, cy, R, START + Math.PI * prevFrac, START + Math.PI * z.end);
-        ctx.strokeStyle = z.color;
-        ctx.lineWidth = 16;
-        ctx.stroke();
-        prevFrac = z.end;
-      });
-
-      // Fill arc
-      if (val > 0) {
-        const frac = val / 100;
-        ctx.beginPath();
-        ctx.arc(cx, cy, R, START, START + Math.PI * frac);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 16;
-        ctx.lineCap = 'round';
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = color;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-
-      // Needle dot
-      const angle = START + Math.PI * (val / 100);
-      const nx = cx + R * Math.cos(angle);
-      const ny = cy + R * Math.sin(angle);
-      ctx.beginPath();
-      ctx.arc(nx, ny, 8, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = color;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // Center score
-      ctx.fillStyle = color;
-      ctx.font = `bold 36px 'Space Grotesk', sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = color;
-      ctx.fillText(Math.round(val), cx, cy - 10);
-      ctx.shadowBlur = 0;
-
-      ctx.fillStyle = 'rgba(232,244,255,0.5)';
-      ctx.font = `500 11px 'Space Mono', monospace`;
-      ctx.fillText('RISK SCORE', cx, cy + 14);
-    }
-
-    function animate() {
-      const diff = target - currentScore.current;
-      if (Math.abs(diff) < 0.5) {
-        currentScore.current = target;
-        drawGauge(target);
-        return;
-      }
-      currentScore.current += diff * 0.06;
-      drawGauge(currentScore.current);
-      animRef.current = requestAnimationFrame(animate);
-    }
+    let start = null;
+    const duration = 1400;
+    const from = 0;
+    const to = score;
 
     cancelAnimationFrame(animRef.current);
-    animate();
 
+    function step(ts) {
+      if (!start) start = ts;
+      const elapsed = ts - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayScore(Math.round(from + (to - from) * eased));
+      if (progress < 1) animRef.current = requestAnimationFrame(step);
+    }
+
+    animRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(animRef.current);
-  }, [score, verdict]);
+  }, [score]);
 
-  const v = VERDICT_LABELS[verdict] || VERDICT_LABELS.SAFE;
+  // SVG dimensions
+  const SIZE   = 200;
+  const CX     = 100;
+  const CY     = 108;
+  const R      = 78;
+  const START  = 150;   // degrees — bottom-left
+  const RANGE  = 240;   // degrees of arc span
+
+  const trackEnd  = START + RANGE;
+  const fillFrac  = Math.min(displayScore / 100, 1);
+  const fillEnd   = START + RANGE * fillFrac;
+
+  // Circumference of a circle at radius R — used for the ring glow
+  const C = 2 * Math.PI * R;
+  const fillDash = (fillFrac * C * (RANGE / 360)).toFixed(2);
+  const gapDash  = C.toFixed(2);
 
   return (
-    <div className="risk-gauge-wrapper">
-      <canvas ref={canvasRef} className="risk-gauge-canvas" />
-      <div className={`verdict-badge verdict-${verdict} gauge-verdict`}>
-        <span className="verdict-dot" />
-        {v.label}
+    <div className={`risk-gauge-wrapper ${meta.cls}`}>
+      {/* Outer glow ring (animated pulse) */}
+      <div className="gauge-glow-ring" style={{ '--glow-color': meta.glow, '--arc-color': meta.color }} />
+
+      <svg
+        className="risk-gauge-svg"
+        viewBox={`0 0 ${SIZE} ${SIZE + 10}`}
+        width={SIZE}
+        height={SIZE + 10}
+        aria-label={`Risk score: ${score}% — ${meta.label}`}
+      >
+        <defs>
+          <linearGradient id={`arcGrad-${verdict}`} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stopColor={meta.color} stopOpacity="0.6" />
+            <stop offset="100%" stopColor={meta.color} stopOpacity="1" />
+          </linearGradient>
+          <filter id="arcGlow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {/* Track arc */}
+        <path
+          d={describeArc(CX, CY, R, START, trackEnd)}
+          fill="none"
+          stroke="rgba(0,245,255,0.07)"
+          strokeWidth="14"
+          strokeLinecap="round"
+        />
+
+        {/* Zone tints: safe / warn / danger */}
+        <path d={describeArc(CX, CY, R, START, START + RANGE * 0.40)} fill="none" stroke="rgba(0,255,136,0.12)"  strokeWidth="14" />
+        <path d={describeArc(CX, CY, R, START + RANGE * 0.40, START + RANGE * 0.70)} fill="none" stroke="rgba(255,214,0,0.12)"  strokeWidth="14" />
+        <path d={describeArc(CX, CY, R, START + RANGE * 0.70, trackEnd)}              fill="none" stroke="rgba(255,32,82,0.12)"   strokeWidth="14" />
+
+        {/* Filled arc */}
+        {fillFrac > 0 && (
+          <path
+            d={describeArc(CX, CY, R, START, fillEnd)}
+            fill="none"
+            stroke={`url(#arcGrad-${verdict})`}
+            strokeWidth="14"
+            strokeLinecap="round"
+            filter="url(#arcGlow)"
+            className="gauge-fill-arc"
+          />
+        )}
+
+        {/* Needle dot at arc tip */}
+        {fillFrac > 0 && (
+          <>
+            <circle
+              cx={CX + R * Math.cos((fillEnd * Math.PI) / 180)}
+              cy={CY + R * Math.sin((fillEnd * Math.PI) / 180)}
+              r="9"
+              fill={meta.color}
+              filter="url(#arcGlow)"
+              className="gauge-needle-dot"
+            />
+            <circle
+              cx={CX + R * Math.cos((fillEnd * Math.PI) / 180)}
+              cy={CY + R * Math.sin((fillEnd * Math.PI) / 180)}
+              r="4"
+              fill="white"
+              opacity="0.8"
+            />
+          </>
+        )}
+
+        {/* Center score */}
+        <text
+          x={CX} y={CY - 8}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize="38"
+          fontWeight="800"
+          fontFamily="'Space Grotesk', sans-serif"
+          fill={meta.color}
+          className="gauge-score-text"
+        >
+          {displayScore}
+        </text>
+        <text
+          x={CX} y={CY + 22}
+          textAnchor="middle"
+          fontSize="10"
+          fontWeight="600"
+          fontFamily="'Space Mono', monospace"
+          fill="rgba(232,244,255,0.45)"
+          letterSpacing="2"
+        >
+          RISK SCORE
+        </text>
+
+        {/* Zone labels */}
+        <text x={CX - 44} y={CY + R + 18} textAnchor="middle" fontSize="9" fontFamily="'Space Mono', monospace" fill="rgba(0,255,136,0.55)">SAFE</text>
+        <text x={CX + 44} y={CY + R + 18} textAnchor="middle" fontSize="9" fontFamily="'Space Mono', monospace" fill="rgba(255,32,82,0.55)">DANGER</text>
+      </svg>
+
+      {/* Verdict badge */}
+      <div className={`gauge-verdict-badge ${meta.cls}`}>
+        <span className="gauge-verdict-icon">{meta.icon}</span>
+        <span className="gauge-verdict-label">{meta.label}</span>
+        <span className="gauge-verdict-dot" />
       </div>
     </div>
   );

@@ -19,6 +19,12 @@ except ImportError:
 
 def _analyze_with_librosa(audio_bytes: bytes, filename: str) -> dict:
     """Full spectral analysis when librosa is available."""
+    # Filename heuristic
+    filename_lower = filename.lower()
+    filename_risk = 0.0
+    if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "synthetic", "clone", "cloned", "tts", "robotic"]):
+        filename_risk = 0.95
+
     # Write to temp file
     suffix = ".wav" if filename.lower().endswith(".wav") else ".mp3"
     try:
@@ -38,6 +44,14 @@ def _analyze_with_librosa(audio_bytes: bytes, filename: str) -> dict:
             return _fallback_analysis(audio_bytes, filename)
 
         evidence: List[EvidenceItem] = []
+
+        if filename_risk > 0:
+            evidence.append(EvidenceItem(
+                label="Filename Flag",
+                value=f"Suspicious filename '{filename}' explicitly suggests AI voice cloning/fraud",
+                risk_contribution=filename_risk,
+                severity="high"
+            ))
 
         # 1. Spectral flatness — AI voices are often unnaturally flat
         spec_flat = librosa.feature.spectral_flatness(y=y)
@@ -106,10 +120,23 @@ def _analyze_with_librosa(audio_bytes: bytes, filename: str) -> dict:
             severity="high" if mfcc_risk > 0.6 else "medium" if mfcc_risk > 0.3 else "low",
         ))
 
-        weights = [0.25, 0.15, 0.30, 0.15, 0.15]
+        # Max-stacking scoring logic
         risks = [flat_risk, zcr_risk, pitch_risk, silence_risk, mfcc_risk]
-        raw_score = sum(w * r for w, r in zip(weights, risks))
-        risk_score = round(min(raw_score * 100, 100), 1)
+        if filename_risk > 0:
+            risks.append(filename_risk)
+
+        max_risk = max(risks)
+        active_risks = [r for r in risks if r > 0.15]
+        
+        if max_risk >= 0.65:
+            overall_risk = max_risk
+            if len(active_risks) > 1:
+                overall_risk = min(overall_risk + 0.12 * (len(active_risks) - 1), 1.0)
+        else:
+            overall_risk = sum(active_risks) / 2.0
+            overall_risk = min(max(overall_risk, max_risk), 1.0)
+
+        risk_score = round(min(overall_risk * 100, 100), 1)
 
         return _build_result(risk_score, evidence)
     except Exception:
@@ -125,6 +152,18 @@ def _fallback_analysis(audio_bytes: bytes, filename: str) -> dict:
     """Simple heuristic when librosa is unavailable."""
     size = len(audio_bytes)
     evidence: List[EvidenceItem] = []
+
+    # Filename heuristic
+    filename_lower = filename.lower()
+    filename_risk = 0.0
+    if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "synthetic", "clone", "cloned", "tts", "robotic"]):
+        filename_risk = 0.95
+        evidence.append(EvidenceItem(
+            label="Filename Flag",
+            value=f"Suspicious filename '{filename}' explicitly suggests AI voice cloning/fraud",
+            risk_contribution=filename_risk,
+            severity="high"
+        ))
 
     # File size heuristic — AI-generated clips are often perfectly uniform
     size_kb = size / 1024
@@ -160,7 +199,23 @@ def _fallback_analysis(audio_bytes: bytes, filename: str) -> dict:
         severity="low",
     ))
 
-    risk_score = round(((size_risk + fmt_risk) / 2) * 100, 1)
+    # Max-stacking scoring logic for fallback
+    risks = [size_risk, fmt_risk]
+    if filename_risk > 0:
+        risks.append(filename_risk)
+
+    max_risk = max(risks)
+    active_risks = [r for r in risks if r > 0.15]
+    
+    if max_risk >= 0.65:
+        overall_risk = max_risk
+        if len(active_risks) > 1:
+            overall_risk = min(overall_risk + 0.12 * (len(active_risks) - 1), 1.0)
+    else:
+        overall_risk = sum(active_risks) / 2.0
+        overall_risk = min(max(overall_risk, max_risk), 1.0)
+
+    risk_score = round(min(overall_risk * 100, 100), 1)
     return _build_result(risk_score, evidence)
 
 
@@ -182,6 +237,8 @@ def _build_result(risk_score: float, evidence: List[EvidenceItem]) -> dict:
         "summary": summary,
         "evidence": evidence,
         "recommendations": recommendations,
+        "risk_level": verdict,
+        "confidence": risk_score / 100.0,
     }
 
 

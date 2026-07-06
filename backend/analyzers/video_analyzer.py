@@ -18,6 +18,12 @@ from analyzers.image_analyzer import analyze_image
 
 
 def analyze_video(video_bytes: bytes, filename: str) -> dict:
+    # Filename heuristic
+    filename_lower = filename.lower()
+    filename_risk = 0.0
+    if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"]):
+        filename_risk = 0.95
+
     if not CV2_AVAILABLE:
         return _fallback(video_bytes, filename)
 
@@ -76,23 +82,33 @@ def analyze_video(video_bytes: bytes, filename: str) -> dict:
     max_score = max(frame_scores)
     high_risk_frames = sum(1 for s in frame_scores if s >= 70)
 
-    evidence: List[EvidenceItem] = [
+    evidence: List[EvidenceItem] = []
+
+    if filename_risk > 0:
+        evidence.append(EvidenceItem(
+            label="Filename Flag",
+            value=f"Suspicious filename '{filename}' explicitly suggests video deepfake/fraud",
+            risk_contribution=filename_risk,
+            severity="high"
+        ))
+
+    evidence.extend([
         EvidenceItem(
             label="Frame Analysis Summary",
             value=f"Analyzed {len(frame_scores)} frames from {duration:.1f}s video",
-            risk_contribution=avg_score / 100,
+            risk_contribution=avg_score / 100.0,
             severity="low",
         ),
         EvidenceItem(
             label="Average Frame Risk Score",
             value=f"{avg_score:.1f}/100",
-            risk_contribution=avg_score / 100,
+            risk_contribution=avg_score / 100.0,
             severity="high" if avg_score > 65 else "medium" if avg_score > 35 else "low",
         ),
         EvidenceItem(
             label="Peak Frame Risk",
             value=f"{max_score:.1f}/100 (worst frame)",
-            risk_contribution=max_score / 100,
+            risk_contribution=max_score / 100.0,
             severity="high" if max_score > 70 else "medium" if max_score > 40 else "low",
         ),
         EvidenceItem(
@@ -101,10 +117,22 @@ def analyze_video(video_bytes: bytes, filename: str) -> dict:
             risk_contribution=high_risk_frames / max(len(frame_scores), 1),
             severity="high" if high_risk_frames > 2 else "medium" if high_risk_frames > 0 else "low",
         ),
-    ]
+    ])
 
-    # Combined score: weighted avg + peak penalty
-    risk_score = round(min(avg_score * 0.7 + max_score * 0.3, 100), 1)
+    # Combined score calculation
+    base_score = avg_score * 0.6 + max_score * 0.4
+    risks = [base_score / 100.0]
+    if filename_risk > 0:
+        risks.append(filename_risk)
+
+    max_risk = max(risks)
+    active_risks = [r for r in risks if r > 0.15]
+    if len(active_risks) > 1:
+        overall_risk = min(max_risk + 0.12 * (len(active_risks) - 1), 1.0)
+    else:
+        overall_risk = max_risk
+
+    risk_score = round(min(overall_risk * 100, 100), 1)
 
     if risk_score >= 65:
         verdict = "HIGH_RISK"
@@ -122,11 +150,18 @@ def analyze_video(video_bytes: bytes, filename: str) -> dict:
         "summary": summary,
         "evidence": evidence,
         "recommendations": _get_recommendations(verdict),
+        "risk_level": verdict,
+        "confidence": risk_score / 100.0,
     }
 
 
 def _fallback(video_bytes: bytes, filename: str) -> dict:
     size_mb = len(video_bytes) / (1024 * 1024)
+    filename_lower = filename.lower()
+    filename_risk = 0.0
+    if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"]):
+        filename_risk = 0.95
+
     evidence = [
         EvidenceItem(
             label="File Size",
@@ -141,15 +176,46 @@ def _fallback(video_bytes: bytes, filename: str) -> dict:
             severity="low",
         ),
     ]
+
+    if filename_risk > 0:
+        evidence.append(EvidenceItem(
+            label="Filename Flag",
+            value=f"Suspicious filename '{filename}' explicitly suggests video deepfake/fraud",
+            risk_contribution=filename_risk,
+            severity="high"
+        ))
+
+    risks = [0.2]
+    if filename_risk > 0:
+        risks.append(filename_risk)
+
+    max_risk = max(risks)
+    active_risks = [r for r in risks if r > 0.15]
+    if len(active_risks) > 1:
+        overall_risk = min(max_risk + 0.12 * (len(active_risks) - 1), 1.0)
+    else:
+        overall_risk = max_risk
+
+    risk_score = round(min(overall_risk * 100, 100), 1)
+
+    if risk_score >= 65:
+        verdict = "HIGH_RISK"
+        summary = "Video filename suggests deepfake/fraud. Detailed frame analysis unavailable."
+    else:
+        verdict = "SUSPICIOUS"
+        summary = "Limited video analysis available. Install opencv-python for full deepfake detection."
+
     return {
-        "risk_score": 45.0,
-        "verdict": "SUSPICIOUS",
-        "summary": "Limited video analysis available. Install opencv-python for full deepfake detection.",
+        "risk_score": risk_score,
+        "verdict": verdict,
+        "summary": summary,
         "evidence": evidence,
         "recommendations": [
             "Install opencv-python for full video analysis: pip install opencv-python",
             "Manually review video for: unnatural blinking, face boundary artifacts, audio-video sync issues.",
         ],
+        "risk_level": verdict,
+        "confidence": risk_score / 100.0,
     }
 
 

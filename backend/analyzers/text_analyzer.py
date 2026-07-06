@@ -14,18 +14,22 @@ URGENCY_PHRASES = [
     "last chance", "don't delay", "respond asap", "action required",
     "your account will be suspended", "verify now", "confirm immediately",
     "account compromised", "security alert", "unauthorized access",
+    "lock", "locked", "suspended", "frozen", "deactivated", "disabled",
+    "due today", "final notice", "pay now", "asap", "immediate action",
 ]
 
 LURE_PHRASES = [
     "you have won", "congratulations", "you've been selected",
     "free gift", "claim your prize", "lottery", "jackpot", "reward",
     "you are a winner", "gift card", "cash prize", "lucky winner",
+    "giveaway", "free voucher", "cash reward", "bonus payout",
 ]
 
 THREAT_PHRASES = [
     "legal action", "arrest warrant", "irs", "police", "lawsuit",
     "court order", "debt collector", "criminal charges", "fbi",
-    "seized", "penalty", "fine", "overdue", "debt",
+    "seized", "penalty", "fine", "overdue", "debt", "block", "blocked",
+    "jail", "sued", "unpaid fee", "tax evasion", "prosecution",
 ]
 
 REQUEST_PHRASES = [
@@ -34,14 +38,15 @@ REQUEST_PHRASES = [
     "verify your account", "login to", "sign in to",
     "send money", "wire transfer", "bitcoin", "crypto", "gift card",
     "social security", "ssn", "password", "credit card", "cvv", "pin",
-    "bank account", "routing number",
+    "bank account", "routing number", "otp", "one-time password",
+    "verification code", "card details", "login credentials", "verify info",
 ]
 
 BRAND_IMPERSONATION = [
     "paypal", "amazon", "netflix", "apple", "microsoft", "google",
     "facebook", "instagram", "whatsapp", "irs", "social security",
     "bank of america", "chase", "wells fargo", "citibank", "hsbc",
-    "fedex", "ups", "usps", "dhl",
+    "fedex", "ups", "usps", "dhl", "post office", "security department",
 ]
 
 SUSPICIOUS_URL_PATTERNS = [
@@ -80,7 +85,7 @@ def _analyze_urls(text: str) -> Tuple[float, str, List[str]]:
     if len(suspicious) == 0:
         return 0.1, f"{len(urls)} URL(s) found, none obviously suspicious", urls
     ratio = len(suspicious) / len(urls)
-    return min(0.3 + ratio * 0.6, 1.0), f"{len(suspicious)}/{len(urls)} URLs are suspicious", suspicious
+    return min(0.3 + ratio * 0.7, 1.0), f"{len(suspicious)}/{len(urls)} URLs are suspicious", suspicious
 
 
 def _grammar_score(text: str) -> Tuple[float, str]:
@@ -119,7 +124,7 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
 
         # 1. Urgency
         urgency_count, urgency_found = _count_matches(text, URGENCY_PHRASES)
-        urgency_risk = min(urgency_count * 0.18, 1.0)
+        urgency_risk = min(urgency_count * 0.35, 1.0)
         evidence.append(EvidenceItem(
             label="Urgency & Pressure Tactics",
             value=f"{urgency_count} phrase(s): {', '.join(urgency_found[:3]) or 'none'}",
@@ -129,7 +134,7 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
 
         # 2. Lure phrases
         lure_count, lure_found = _count_matches(text, LURE_PHRASES)
-        lure_risk = min(lure_count * 0.25, 1.0)
+        lure_risk = min(lure_count * 0.40, 1.0)
         evidence.append(EvidenceItem(
             label="Reward / Lure Language",
             value=f"{lure_count} phrase(s): {', '.join(lure_found[:3]) or 'none'}",
@@ -139,7 +144,7 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
 
         # 3. Threats
         threat_count, threat_found = _count_matches(text, THREAT_PHRASES)
-        threat_risk = min(threat_count * 0.25, 1.0)
+        threat_risk = min(threat_count * 0.40, 1.0)
         evidence.append(EvidenceItem(
             label="Threat / Fear Language",
             value=f"{threat_count} phrase(s): {', '.join(threat_found[:3]) or 'none'}",
@@ -149,7 +154,7 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
 
         # 4. Information requests
         req_count, req_found = _count_matches(text, REQUEST_PHRASES)
-        req_risk = min(req_count * 0.20, 1.0)
+        req_risk = min(req_count * 0.40, 1.0)
         evidence.append(EvidenceItem(
             label="Sensitive Information Requests",
             value=f"{req_count} phrase(s): {', '.join(req_found[:3]) or 'none'}",
@@ -159,7 +164,7 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
 
         # 5. Brand impersonation
         brand_count, brand_found = _count_matches(text, BRAND_IMPERSONATION)
-        brand_risk = min(brand_count * 0.15, 0.6)
+        brand_risk = min(brand_count * 0.30, 0.8)
         evidence.append(EvidenceItem(
             label="Brand Impersonation",
             value=f"Mentions: {', '.join(brand_found[:4]) or 'none'}",
@@ -185,10 +190,20 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
             severity="medium" if grammar_risk > 0.3 else "low",
         ))
 
-        weights = [0.20, 0.18, 0.18, 0.20, 0.10, 0.09, 0.05]
+        # Non-linear combination to avoid dilution
         risks = [urgency_risk, lure_risk, threat_risk, req_risk, brand_risk, url_risk, grammar_risk]
-        raw_score = sum(w * r for w, r in zip(weights, risks))
-        risk_score = round(min(raw_score * 100, 100), 1)
+        max_risk = max(risks)
+        active_risks = [r for r in risks if r > 0.15]
+        
+        if max_risk >= 0.65:
+            overall_risk = max_risk
+            if len(active_risks) > 1:
+                overall_risk = min(overall_risk + 0.15 * (len(active_risks) - 1), 1.0)
+        else:
+            overall_risk = sum(active_risks) / 2.0
+            overall_risk = min(max(overall_risk, max_risk), 1.0)
+            
+        risk_score = round(min(overall_risk * 100, 100), 1)
 
         if risk_score >= 60:
             verdict = "HIGH_RISK"
@@ -211,6 +226,8 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
             "summary": summary,
             "evidence": evidence,
             "recommendations": recommendations,
+            "risk_level": verdict,              # compatibility field
+            "confidence": risk_score / 100.0,   # compatibility field
         }
     except Exception as e:
         return {
@@ -219,6 +236,8 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
             "summary": f"Could not analyze text due to internal error: {str(e)}",
             "evidence": [],
             "recommendations": [],
+            "risk_level": "SAFE",
+            "confidence": 0.0,
         }
 
 

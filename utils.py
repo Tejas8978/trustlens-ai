@@ -38,6 +38,8 @@ def get_confidence_percentage(confidence):
     """Format confidence as percentage"""
     try:
         conf = float(confidence) if confidence else 0
+        if conf > 1.0:
+            conf = conf / 100.0
         return f"{conf:.1%}"
     except:
         return "N/A"

@@ -1,11 +1,70 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UploadCard from '../components/UploadCard';
 import ResultPanel from '../components/ResultPanel';
 import { Shield } from 'lucide-react';
 import './Analyze.css';
 
+const SCAN_STEPS = [
+  'Initializing scan engine…',
+  'Loading & decoding content…',
+  'Extracting forensic features…',
+  'Running detection algorithms…',
+  'Applying risk model…',
+  'Generating report…',
+];
+
+function RadarLoader() {
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveStep(s => Math.min(s + 1, SCAN_STEPS.length - 1));
+    }, 900);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="scan-loading glass-card">
+      {/* Radar animation */}
+      <div className="radar-container">
+        <div className="radar-ring radar-ring-1" />
+        <div className="radar-ring radar-ring-2" />
+        <div className="radar-ring radar-ring-3" />
+        <div className="radar-sweep" />
+        <div className="radar-center">
+          <Shield size={28} />
+        </div>
+        {/* Blip dots */}
+        <div className="radar-blip blip-1" />
+        <div className="radar-blip blip-2" />
+        <div className="radar-blip blip-3" />
+      </div>
+
+      <h3 className="scan-title">Scanning Content</h3>
+      <p className="scan-subtitle">TrustLens AI is analyzing for threats</p>
+
+      {/* Step list */}
+      <div className="scan-steps">
+        {SCAN_STEPS.map((s, i) => (
+          <div
+            key={i}
+            className={`scan-step ${i < activeStep ? 'step-done' : i === activeStep ? 'step-active' : 'step-pending'}`}
+          >
+            <span className="step-indicator">
+              {i < activeStep  ? '✓' :
+               i === activeStep ? <span className="step-spinner" /> :
+               '○'}
+            </span>
+            <span className="step-label">{s}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Analyze() {
-  const [result, setResult] = useState(null);
+  const [result,  setResult]  = useState(null);
   const [loading, setLoading] = useState(false);
 
   return (
@@ -32,24 +91,7 @@ export default function Analyze() {
         {/* Right: Result */}
         <div className="analyze-right">
           {loading ? (
-            <div className="scan-loading glass-card">
-              <div className="scan-animation">
-                <div className="scan-ring" />
-                <div className="scan-ring scan-ring-2" />
-                <div className="scan-ring scan-ring-3" />
-                <Shield size={32} style={{ color: 'var(--cyan)' }} />
-              </div>
-              <h3>Analyzing...</h3>
-              <p>Running deepfake detection algorithms</p>
-              <div className="scan-steps">
-                {['Loading file', 'Extracting features', 'Running analysis', 'Computing score'].map((s, i) => (
-                  <div key={i} className="scan-step">
-                    <div className="scan-step-dot" style={{ animationDelay: `${i * 0.4}s` }} />
-                    {s}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <RadarLoader />
           ) : result ? (
             <ResultPanel result={result} />
           ) : (

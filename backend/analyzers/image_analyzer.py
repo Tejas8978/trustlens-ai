@@ -1,9 +1,10 @@
 """
-Image Deepfake Analyzer
-Uses Error Level Analysis (ELA) and metadata heuristics.
+Image Deepfake & Scam Analyzer
+Uses Error Level Analysis (ELA), metadata heuristics, and raw byte text inspection.
 """
 import io
 import math
+import re
 import struct
 from PIL import Image, ImageChops, ImageEnhance
 from typing import List, Tuple
@@ -32,7 +33,6 @@ def _ela_score(img: Image.Image, quality: int = 90) -> float:
 
     avg_brightness = sum(max(p) if isinstance(p, tuple) else p for p in pixels) / total
     return min(avg_brightness / 255.0, 1.0)
-
 
 
 def _check_metadata(img: Image.Image) -> Tuple[float, str]:
@@ -85,22 +85,66 @@ def _color_distribution(img: Image.Image) -> Tuple[float, str]:
     return 0.2, f"Moderate color uniformity (σ={avg_std:.1f})"
 
 
+def _extract_text_from_bytes(data: bytes) -> str:
+    """Extract readable ASCII strings from binary data to search for embedded scam clues."""
+    matches = re.findall(b"[ -~]{4,}", data)
+    return " ".join(m.decode("ascii", errors="ignore") for m in matches)
+
+
+def _check_text_risk(text: str) -> Tuple[float, str]:
+    """Scans extracted binary text for scam and brand impersonation phrases."""
+    text_lower = text.lower()
+    keywords = [
+        "paypal", "chase", "wells fargo", "citibank", "bank of america",
+        "crypto", "bitcoin", "lottery", "cash prize", "winner", "congratulations",
+        "urgent", "security alert", "suspicious", "fraud", "scam", "spoof",
+        "phish", "lock", "suspend", "stable diffusion", "midjourney", "dall-e",
+    ]
+    found = [kw for kw in keywords if kw in text_lower]
+    if not found:
+        return 0.0, "No embedded scam keywords or AI tool names detected in image bytes"
+    
+    risk = min(0.3 + 0.15 * len(found), 0.95)
+    return risk, f"Detected embedded keywords/markers: {', '.join(found[:5])}"
+
+
 def analyze_image(image_bytes: bytes, filename: str) -> dict:
     try:
         img = Image.open(io.BytesIO(image_bytes))
     except Exception:
+        filename_lower = filename.lower()
+        if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"]):
+            score = 95.0
+            verdict = "HIGH_RISK"
+        else:
+            score = 50.0
+            verdict = "SUSPICIOUS"
         return {
-            "risk_score": 50.0,
-            "verdict": "SUSPICIOUS",
+            "risk_score": score,
+            "verdict": verdict,
             "summary": "Could not fully parse image file.",
             "evidence": [],
             "recommendations": ["Upload a valid JPEG or PNG file."],
+            "risk_level": verdict,
+            "confidence": score / 100.0,
         }
 
     try:
         evidence: List[EvidenceItem] = []
 
-        # 1. ELA
+        # 1. Filename heuristic
+        filename_lower = filename.lower()
+        filename_risk = 0.0
+        if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"]):
+            filename_risk = 0.95
+            evidence.append(EvidenceItem(
+                label="Filename Flag",
+                value=f"Suspicious filename '{filename}' explicitly suggests manipulation/fraud",
+                risk_contribution=filename_risk,
+                severity="high"
+            ))
+
+        # 2. ELA
         ela = _ela_score(img)
         ela_risk = ela * 0.9
         evidence.append(EvidenceItem(
@@ -110,7 +154,7 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             severity="high" if ela_risk > 0.5 else "medium" if ela_risk > 0.25 else "low",
         ))
 
-        # 2. Metadata
+        # 3. Metadata
         meta_risk, meta_msg = _check_metadata(img)
         evidence.append(EvidenceItem(
             label="EXIF Metadata Analysis",
@@ -119,7 +163,7 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             severity="high" if meta_risk > 0.7 else "medium" if meta_risk > 0.3 else "low",
         ))
 
-        # 3. Dimensions
+        # 4. Dimensions
         dim_risk, dim_msg = _aspect_and_size_check(img)
         evidence.append(EvidenceItem(
             label="Dimension Fingerprint",
@@ -128,7 +172,7 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             severity="medium" if dim_risk > 0.3 else "low",
         ))
 
-        # 4. Color
+        # 5. Color
         color_risk, color_msg = _color_distribution(img)
         evidence.append(EvidenceItem(
             label="Color Distribution Analysis",
@@ -137,15 +181,37 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             severity="high" if color_risk > 0.5 else "medium" if color_risk > 0.2 else "low",
         ))
 
-        # Weighted average
-        weights = [0.40, 0.25, 0.20, 0.15]
-        risks = [ela_risk, meta_risk, dim_risk, color_risk]
-        raw_score = sum(w * r for w, r in zip(weights, risks))
-        risk_score = round(min(raw_score * 100, 100), 1)
+        # 6. Embedded Raw Bytes Text Scan
+        extracted_text = _extract_text_from_bytes(image_bytes)
+        text_risk, text_msg = _check_text_risk(extracted_text)
+        evidence.append(EvidenceItem(
+            label="Embedded Data Inspection",
+            value=text_msg,
+            risk_contribution=text_risk,
+            severity="high" if text_risk > 0.6 else "medium" if text_risk > 0.3 else "low",
+        ))
+
+        # Max-stacking non-dilution formula
+        risks = [ela_risk, meta_risk, dim_risk, color_risk, text_risk]
+        if filename_risk > 0:
+            risks.append(filename_risk)
+
+        max_risk = max(risks)
+        active_risks = [r for r in risks if r > 0.15]
+        
+        if max_risk >= 0.65:
+            overall_risk = max_risk
+            if len(active_risks) > 1:
+                overall_risk = min(overall_risk + 0.12 * (len(active_risks) - 1), 1.0)
+        else:
+            overall_risk = sum(active_risks) / 2.0
+            overall_risk = min(max(overall_risk, max_risk), 1.0)
+
+        risk_score = round(min(overall_risk * 100, 100), 1)
 
         if risk_score >= 70:
             verdict = "HIGH_RISK"
-            summary = "Strong indicators of AI-generated or manipulated image detected."
+            summary = "Strong indicators of AI-generation, manipulation, or embedded fraud cues detected."
         elif risk_score >= 40:
             verdict = "SUSPICIOUS"
             summary = "Several anomalies found — treat this image with caution."
@@ -161,6 +227,8 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             "summary": summary,
             "evidence": evidence,
             "recommendations": recommendations,
+            "risk_level": verdict,
+            "confidence": risk_score / 100.0,
         }
     except Exception as e:
         return {
@@ -169,6 +237,8 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             "summary": f"Could not fully analyze image file: {str(e)}",
             "evidence": [],
             "recommendations": ["Upload a valid JPEG or PNG file."],
+            "risk_level": "SUSPICIOUS",
+            "confidence": 0.5,
         }
 
 
