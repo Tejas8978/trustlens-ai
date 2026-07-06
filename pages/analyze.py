@@ -9,6 +9,10 @@ backend_path = Path(__file__).parent.parent / "backend"
 if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
+# Import utils
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import get_risk_status, get_confidence_percentage
+
 try:
     from analyzers.image_analyzer import analyze_image
     from analyzers.video_analyzer import analyze_video
@@ -157,22 +161,18 @@ def display_results(result, analysis_type):
     st.markdown("---")
     st.subheader("📊 Analysis Results")
     
-    risk_level = result.get("risk_level", "unknown").upper()
+    risk_level = result.get("risk_level", "unknown")
     confidence = result.get("confidence", 0)
     
-    # Color based on risk
-    if risk_level == "HIGH":
-        color = "🔴"
-    elif risk_level == "MEDIUM":
-        color = "🟡"
-    else:
-        color = "🟢"
+    # Get display status
+    status = get_risk_status(risk_level)
+    confidence_pct = get_confidence_percentage(confidence)
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Risk Level", f"{color} {risk_level}")
+        st.metric("Detection Status", status)
     with col2:
-        st.metric("Confidence", f"{confidence:.1%}")
+        st.metric("Confidence", confidence_pct)
     with col3:
         st.metric("Type Analyzed", analysis_type)
     

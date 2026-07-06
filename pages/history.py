@@ -3,6 +3,10 @@ from pathlib import Path
 import sys
 import pandas as pd
 
+# Add utils to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import get_risk_status, get_confidence_percentage
+
 # Add backend to path
 backend_path = Path(__file__).parent.parent / "backend"
 if str(backend_path) not in sys.path:
@@ -83,8 +87,11 @@ def show():
     # Prepare display data
     try:
         display_df = df[["type", "filename", "risk_level", "confidence", "created_at"]].copy()
-        display_df.columns = ["Type", "File/Text", "Risk Level", "Confidence", "Date"]
-        display_df["Confidence"] = display_df["Confidence"].apply(lambda x: f"{float(x):.1%}" if x and x != "N/A" else "N/A")
+        display_df.columns = ["Type", "File/Text", "Detection Status", "Confidence", "Date"]
+        
+        # Apply risk status mapping
+        display_df["Detection Status"] = display_df["Detection Status"].apply(get_risk_status)
+        display_df["Confidence"] = display_df["Confidence"].apply(get_confidence_percentage)
         display_df["Date"] = display_df["Date"].astype(str)
         
         st.dataframe(
