@@ -81,40 +81,45 @@ def show():
     st.subheader("Recent Analyses")
     
     # Prepare display data
-    display_df = df[["type", "filename", "risk_level", "confidence", "created_at"]].copy()
-    display_df.columns = ["Type", "File/Text", "Risk Level", "Confidence", "Date"]
-    display_df["Confidence"] = display_df["Confidence"].apply(lambda x: f"{x:.1%}" if x else "N/A")
-    
-    # Color the risk level column
-    def color_risk(val):
-        if val == "HIGH":
-            return "color: red"
-        elif val == "MEDIUM":
-            return "color: orange"
-        else:
-            return "color: green"
-    
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-    )
+    try:
+        display_df = df[["type", "filename", "risk_level", "confidence", "created_at"]].copy()
+        display_df.columns = ["Type", "File/Text", "Risk Level", "Confidence", "Date"]
+        display_df["Confidence"] = display_df["Confidence"].apply(lambda x: f"{float(x):.1%}" if x and x != "N/A" else "N/A")
+        display_df["Date"] = display_df["Date"].astype(str)
+        
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+    except Exception as e:
+        st.error(f"Error displaying table: {e}")
+        st.write(df)
     
     # Detailed view
     st.markdown("---")
     st.subheader("📈 Analysis Breakdown")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Type breakdown
-        type_counts = df["type"].value_counts()
-        st.bar_chart(type_counts, use_container_width=True)
-    
-    with col2:
-        # Risk level breakdown
-        risk_counts = df["risk_level"].value_counts()
-        st.bar_chart(risk_counts, use_container_width=True)
+    try:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Type breakdown
+            type_counts = df["type"].value_counts()
+            if len(type_counts) > 0:
+                st.bar_chart(type_counts, use_container_width=True)
+            else:
+                st.info("No data to display")
+        
+        with col2:
+            # Risk level breakdown
+            risk_counts = df["risk_level"].value_counts()
+            if len(risk_counts) > 0:
+                st.bar_chart(risk_counts, use_container_width=True)
+            else:
+                st.info("No data to display")
+    except Exception as e:
+        st.error(f"Error creating charts: {e}")
     
     # Export option
     st.markdown("---")

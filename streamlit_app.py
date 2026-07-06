@@ -47,16 +47,15 @@ st.sidebar.markdown("---")
 
 page = st.sidebar.radio(
     "Navigation",
-    ["Home", "Analyze", "History"],
-    icons=["🏠", "🔍", "📊"]
+    ["🏠 Home", "🔍 Analyze", "📊 History"]
 )
 
 # Route to pages
-if page == "Home":
+if page == "🏠 Home":
     home.show()
-elif page == "Analyze":
+elif page == "🔍 Analyze":
     analyze.show()
-elif page == "History":
+elif page == "📊 History":
     history.show()
 
 # Footer
