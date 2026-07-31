@@ -1,22 +1,8 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
 import { Upload, Image, Volume2, Video, MessageSquare, Mail, X, FileText, Loader } from 'lucide-react';
+import { getApiUrl } from '../api/config';
 import './UploadCard.css';
-
-function getApiUrl() {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return '';
-  }
-  const stored = localStorage.getItem('VITE_API_URL');
-  if (stored) return stored.replace(/\/$/, '');
-  
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) return envUrl.replace(/\/$/, '');
-  
-  return 'https://trustlens-backend.onrender.com';
-}
-
-const API = getApiUrl();
 
 function formatErrorMessage(msg) {
   if (!msg) return 'Analysis failed. Please try again.';
@@ -35,6 +21,7 @@ function formatErrorMessage(msg) {
 
 // Wake up the Render backend before analysis (free tier sleeps after inactivity)
 async function wakeUpBackend(retries = 8, delayMs = 3500) {
+  const API = getApiUrl();
   for (let i = 0; i < retries; i++) {
     try {
       const resp = await axios.get(`${API}/health`, { timeout: 8000 });
@@ -90,6 +77,8 @@ export default function UploadCard({ onResult, onLoading }) {
       setError('Please select a file to analyze.');
       return;
     }
+
+    const API = getApiUrl();
 
     // Check if backend is reachable — if not, try to wake it up (Render free tier)
     if (API) {

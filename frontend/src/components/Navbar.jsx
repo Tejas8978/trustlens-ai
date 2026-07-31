@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Shield, Zap, Clock, Settings, Save, X } from 'lucide-react';
+import { getApiUrl } from '../api/config';
 import './Navbar.css';
 
 export default function Navbar() {
   const loc = useLocation();
   const active = (path) => loc.pathname === path ? 'nav-link active' : 'nav-link';
   const [showSettings, setShowSettings] = useState(false);
-  const [backendUrl, setBackendUrl] = useState(
-    localStorage.getItem('VITE_API_URL') || import.meta.env.VITE_API_URL || 'https://trustlens-backend.onrender.com'
-  );
+  const [backendUrl, setBackendUrl] = useState(getApiUrl());
 
   function handleSave() {
     localStorage.setItem('VITE_API_URL', backendUrl);

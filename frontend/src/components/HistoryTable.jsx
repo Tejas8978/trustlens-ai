@@ -1,23 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Clock, Trash2, RefreshCw, Filter } from 'lucide-react';
+import { getApiUrl } from '../api/config';
 import './HistoryTable.css';
-
-function getApiUrl() {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return '';
-  }
-  const stored = localStorage.getItem('VITE_API_URL');
-  if (stored) return stored.replace(/\/$/, '');
-  
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) return envUrl.replace(/\/$/, '');
-  
-  return 'https://trustlens-backend.onrender.com';
-}
-
-const API = getApiUrl();
-
 
 const VERDICT_COLORS = {
   SAFE: 'var(--green)',
@@ -42,6 +27,7 @@ export default function HistoryTable() {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError('');
+    const API = getApiUrl();
     try {
       const params = filter ? { scan_type: filter } : {};
       const res = await axios.get(`${API}/api/history/`, { params, timeout: 15000 });
@@ -61,6 +47,7 @@ export default function HistoryTable() {
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   async function deleteScan(id) {
+    const API = getApiUrl();
     try {
       await axios.delete(`${API}/api/history/${id}`);
       setLogs(logs.filter(l => l.id !== id));

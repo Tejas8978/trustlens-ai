@@ -1,5 +1,9 @@
 {
-    "env": {
-        "PIP_DEFAULT_TIMEOUT": "100"
-    }
+  "framework": "vite",
+  "buildCommand": "npm --prefix frontend run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm --prefix frontend install",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
