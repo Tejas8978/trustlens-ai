@@ -8,4 +8,4 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: ALLOWED_ORIGINS
-        value: "*"
+        value: "https://bootcamp-three-theta.vercel.app,https://bootcamp-l0f2rn1ws-tejas8978s-projects.vercel.app,http://localhost:5173"
