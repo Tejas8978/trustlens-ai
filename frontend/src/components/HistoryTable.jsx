@@ -30,13 +30,13 @@ export default function HistoryTable() {
     const API = getApiUrl();
     try {
       const params = filter ? { scan_type: filter } : {};
-      const res = await axios.get(`${API}/api/history/`, { params, timeout: 15000 });
+      const res = await axios.get(`${API}/api/history/`, { params, timeout: 60000 });
       setLogs(res.data);
     } catch (_err) {
       if (!API) {
         setError('Could not connect to the local backend. Please make sure uvicorn is running on port 8000.');
       } else {
-        setError('Could not load history. Backend may be sleeping — try refreshing in 30s or check your Settings configuration.');
+        setError('Could not load history. Backend may be waking up (Render free instances take ~30-50s) or check backend deployment status.');
       }
     } finally {
       setLoading(false);

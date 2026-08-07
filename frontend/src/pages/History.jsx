@@ -13,7 +13,7 @@ export default function History() {
           Scan <span className="text-gradient">History</span>
         </h1>
         <p className="history-desc">
-          All previous scans are stored locally in your SQLite database.
+          All previous scans are securely stored in your MongoDB database.
           Filter by type, view verdicts, and manage your scan records.
         </p>
       </div>
