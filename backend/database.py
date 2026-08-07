@@ -1,90 +1,112 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
-from sqlalchemy.orm import sessionmaker, declarative_base
+"""
+TrustLens AI — MongoDB database layer (PyMongo)
+"""
+import os
 from datetime import datetime, timezone
+from bson import ObjectId
+from pymongo import MongoClient, DESCENDING
+from dotenv import load_dotenv
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./trustlens.db"
+load_dotenv()
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+DB_NAME = os.getenv("MONGO_DB_NAME", "trustlens")
 
-
-class ScanLog(Base):
-    __tablename__ = "scan_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    scan_type = Column(String, nullable=False)          # image | audio | video | sms | email
-    filename = Column(String, nullable=True)
-    risk_score = Column(Float, nullable=False)
-    verdict = Column(String, nullable=False)            # SAFE | SUSPICIOUS | HIGH_RISK
-    summary = Column(Text, nullable=False)
-    details = Column(Text, nullable=True)               # JSON string
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+_client: MongoClient = None
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_client() -> MongoClient:
+    global _client
+    if _client is None:
+        _client = MongoClient(MONGO_URI)
+    return _client
+
+
+def get_collection():
+    return get_client()[DB_NAME]["scan_logs"]
 
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    """Create indexes for performance."""
+    col = get_collection()
+    col.create_index([("created_at", DESCENDING)])
+    col.create_index([("scan_type", 1)])
+    print(f"[DB] Connected to MongoDB — database: '{DB_NAME}'")
 
 
-def add_history(data: dict):
-    """Add a scan to the database"""
+# ---------------------------------------------------------------------------
+# CRUD helpers
+# ---------------------------------------------------------------------------
+
+def add_history(data: dict) -> str:
+    """Insert a scan result into the scan_logs collection. Returns inserted id."""
     try:
-        db = SessionLocal()
-        scan = ScanLog(
-            scan_type=data.get("type", "unknown"),
-            filename=data.get("filename", ""),
-            risk_score=float(data.get("confidence", 0)),
-            verdict=data.get("risk_level", "SUSPICIOUS").upper(),
-            summary=str(data.get("details", "")),
-            details=str(data)
-        )
-        db.add(scan)
-        db.commit()
-        db.close()
+        col = get_collection()
+        doc = {
+            "scan_type":  data.get("scan_type") or data.get("type", "unknown"),
+            "filename":   data.get("filename"),
+            "risk_score": float(data.get("risk_score") or data.get("confidence", 0)),
+            "verdict":    (data.get("verdict") or data.get("risk_level", "SUSPICIOUS")).upper(),
+            "summary":    str(data.get("summary") or data.get("details", "")),
+            "details":    str(data),
+            "created_at": datetime.now(timezone.utc),
+        }
+        result = col.insert_one(doc)
+        return str(result.inserted_id)
     except Exception as e:
-        print(f"Error adding to history: {e}")
+        print(f"[DB] Error adding to history: {e}")
+        return ""
 
 
-def get_history() -> list:
-    """Get all scans from the database"""
+def get_history(
+    skip: int = 0,
+    limit: int = 50,
+    scan_type: str = None,
+) -> list:
+    """Return scan logs, newest first, with optional type filter."""
     try:
-        db = SessionLocal()
-        scans = db.query(ScanLog).order_by(ScanLog.created_at.desc()).all()
+        col = get_collection()
+        query = {}
+        if scan_type:
+            query["scan_type"] = scan_type
+        cursor = (
+            col.find(query)
+            .sort("created_at", DESCENDING)
+            .skip(skip)
+            .limit(limit)
+        )
         result = []
-        for scan in scans:
+        for doc in cursor:
             result.append({
-                "id": scan.id,
-                "type": scan.scan_type,
-                "filename": scan.filename,
-                "risk_level": scan.verdict,
-                "confidence": scan.risk_score,
-                "details": scan.summary,
-                "created_at": scan.created_at
+                "id":         str(doc["_id"]),
+                "scan_type":  doc.get("scan_type", ""),
+                "filename":   doc.get("filename"),
+                "risk_score": doc.get("risk_score", 0.0),
+                "verdict":    doc.get("verdict", "UNKNOWN"),
+                "summary":    doc.get("summary", ""),
+                "created_at": doc.get("created_at"),
             })
-        db.close()
         return result
     except Exception as e:
-        print(f"Error getting history: {e}")
+        print(f"[DB] Error getting history: {e}")
         return []
 
 
-def delete_history():
-    """Clear all scans from the database"""
+def delete_one(scan_id: str) -> bool:
+    """Delete a single scan by its string ObjectId. Returns True if deleted."""
     try:
-        db = SessionLocal()
-        db.query(ScanLog).delete()
-        db.commit()
-        db.close()
+        col = get_collection()
+        result = col.delete_one({"_id": ObjectId(scan_id)})
+        return result.deleted_count > 0
     except Exception as e:
-        print(f"Error deleting history: {e}")
+        print(f"[DB] Error deleting scan {scan_id}: {e}")
+        return False
 
+
+def delete_all():
+    """Clear all scans from the collection."""
+    try:
+        col = get_collection()
+        col.delete_many({})
+    except Exception as e:
+        print(f"[DB] Error clearing history: {e}")

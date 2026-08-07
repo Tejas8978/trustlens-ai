@@ -9,12 +9,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from database import init_db
+import database
 from routers import analyze, history
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    database.init_db()
     yield
 
 

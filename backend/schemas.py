@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -22,13 +22,12 @@ class AnalysisResult(BaseModel):
 
 
 class ScanLogOut(BaseModel):
-    id: int
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str                    # MongoDB ObjectId serialized as string
     scan_type: str
-    filename: Optional[str]
+    filename: Optional[str] = None
     risk_score: float
     verdict: str
     summary: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True

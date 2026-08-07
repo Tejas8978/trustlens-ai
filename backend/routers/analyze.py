@@ -3,14 +3,13 @@ Analysis router — handles all /api/analyze/* endpoints
 """
 import json
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
-from sqlalchemy.orm import Session
-from database import get_db, ScanLog
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from schemas import AnalysisResult, EvidenceItem
 from analyzers.image_analyzer import analyze_image
 from analyzers.audio_analyzer import analyze_audio
 from analyzers.video_analyzer import analyze_video
 from analyzers.text_analyzer import analyze_text
+import database
 
 router = APIRouter(prefix="/api/analyze", tags=["analyze"])
 
@@ -45,28 +44,22 @@ AI_PROMPTS = {
 }
 
 
-def _save_scan(db: Session, result: dict, scan_type: str, filename: Optional[str]):
-    log = ScanLog(
-        scan_type=scan_type,
-        filename=filename,
-        risk_score=result["risk_score"],
-        verdict=result["verdict"],
-        summary=result["summary"],
-        details=json.dumps([
-            (e.model_dump() if hasattr(e, "model_dump") else (e.dict() if hasattr(e, "dict") else e))
-            for e in result["evidence"]
-        ]),
-    )
-    db.add(log)
-    db.commit()
-    db.refresh(log)
-    return log
+def _save_scan(result: dict, scan_type: str, filename: Optional[str]):
+    """Persist the scan result to MongoDB."""
+    payload = dict(result)
+    payload["scan_type"] = scan_type
+    payload["filename"] = filename
+    # Serialize evidence list for storage
+    payload["details"] = json.dumps([
+        (e.model_dump() if hasattr(e, "model_dump") else (e.dict() if hasattr(e, "dict") else e))
+        for e in result.get("evidence", [])
+    ])
+    database.add_history(payload)
 
 
 @router.post("/image", response_model=AnalysisResult)
 async def analyze_image_endpoint(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
 ):
     content = await file.read()
     if len(content) > 20 * 1024 * 1024:
@@ -76,14 +69,13 @@ async def analyze_image_endpoint(
     result["scan_type"] = "image"
     result["filename"] = file.filename
     result["ai_builder_prompt"] = AI_PROMPTS["image"]
-    _save_scan(db, result, "image", file.filename)
+    _save_scan(result, "image", file.filename)
     return AnalysisResult(**result)
 
 
 @router.post("/audio", response_model=AnalysisResult)
 async def analyze_audio_endpoint(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
 ):
     content = await file.read()
     if len(content) > 50 * 1024 * 1024:
@@ -93,14 +85,13 @@ async def analyze_audio_endpoint(
     result["scan_type"] = "audio"
     result["filename"] = file.filename
     result["ai_builder_prompt"] = AI_PROMPTS["audio"]
-    _save_scan(db, result, "audio", file.filename)
+    _save_scan(result, "audio", file.filename)
     return AnalysisResult(**result)
 
 
 @router.post("/video", response_model=AnalysisResult)
 async def analyze_video_endpoint(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
 ):
     content = await file.read()
     if len(content) > 200 * 1024 * 1024:
@@ -110,7 +101,7 @@ async def analyze_video_endpoint(
     result["scan_type"] = "video"
     result["filename"] = file.filename
     result["ai_builder_prompt"] = AI_PROMPTS["video"]
-    _save_scan(db, result, "video", file.filename)
+    _save_scan(result, "video", file.filename)
     return AnalysisResult(**result)
 
 
@@ -118,7 +109,6 @@ async def analyze_video_endpoint(
 async def analyze_text_endpoint(
     text: str = Form(...),
     mode: str = Form("sms"),   # sms | email
-    db: Session = Depends(get_db),
 ):
     if not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
@@ -129,5 +119,5 @@ async def analyze_text_endpoint(
     result["scan_type"] = mode
     result["filename"] = None
     result["ai_builder_prompt"] = AI_PROMPTS[mode]
-    _save_scan(db, result, mode, None)
+    _save_scan(result, mode, None)
     return AnalysisResult(**result)

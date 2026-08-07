@@ -36,3 +36,5 @@ env/
 *.ntuser*
 *.DAT*
 *.LOG*
+
+.vercel
