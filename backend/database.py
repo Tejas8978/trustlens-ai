@@ -7,6 +7,8 @@ from bson import ObjectId
 from pymongo import MongoClient, DESCENDING
 from dotenv import load_dotenv
 
+import certifi
+
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
@@ -18,7 +20,13 @@ _client: MongoClient = None
 def get_client() -> MongoClient:
     global _client
     if _client is None:
-        _client = MongoClient(MONGO_URI)
+        kwargs = {}
+        if "mongodb+srv://" in MONGO_URI or "tls=true" in MONGO_URI.lower() or "ssl=true" in MONGO_URI.lower():
+            try:
+                kwargs["tlsCAFile"] = certifi.where()
+            except Exception:
+                pass
+        _client = MongoClient(MONGO_URI, **kwargs)
     return _client
 
 
