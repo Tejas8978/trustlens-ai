@@ -20,11 +20,12 @@ function formatErrorMessage(msg) {
 }
 
 // Wake up the Render backend before analysis (free tier sleeps after inactivity)
-async function wakeUpBackend(retries = 8, delayMs = 3500) {
+// Render cold starts can take up to 60s — retry for 15×4s = 60s
+async function wakeUpBackend(retries = 15, delayMs = 4000) {
   const API = getApiUrl();
   for (let i = 0; i < retries; i++) {
     try {
-      const resp = await axios.get(`${API}/health`, { timeout: 8000 });
+      const resp = await axios.get(`${API}/health`, { timeout: 10000 });
       if (resp.status === 200) return true;
     } catch (_err) {
       // Still sleeping — wait and retry

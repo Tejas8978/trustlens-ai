@@ -9,5 +9,5 @@ export function getApiUrl() {
     return '';
   }
 
-  return 'https://trustlens-backend.onrender.com';
+  return 'https://trustlens-ai-m5ud.onrender.com';
 }
