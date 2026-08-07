@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: trustlens-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ALLOWED_ORIGINS
+        value: "https://bootcamp-three-theta.vercel.app,https://bootcamp-l0f2rn1ws-tejas8978s-projects.vercel.app,http://localhost:5173,https://trustlens-ai-m5ud.onrender.com"
+      - key: MONGO_URI
+        sync: false   # Set this manually in the Render dashboard
+      - key: MONGO_DB_NAME
+        value: trustlens

@@ -27,11 +27,15 @@ def get_collection():
 
 
 def init_db():
-    """Create indexes for performance."""
-    col = get_collection()
-    col.create_index([("created_at", DESCENDING)])
-    col.create_index([("scan_type", 1)])
-    print(f"[DB] Connected to MongoDB — database: '{DB_NAME}'")
+    """Create indexes for performance. Logs a warning if DB is unreachable."""
+    try:
+        col = get_collection()
+        col.create_index([("created_at", DESCENDING)])
+        col.create_index([("scan_type", 1)])
+        print(f"[DB] Connected to MongoDB — database: '{DB_NAME}'")
+    except Exception as e:
+        print(f"[DB] WARNING: Could not connect to MongoDB on startup: {e}")
+        print("[DB] Check that MONGO_URI environment variable is set correctly.")
 
 
 # ---------------------------------------------------------------------------
