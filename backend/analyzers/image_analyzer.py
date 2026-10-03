@@ -2,6 +2,7 @@
 Image Deepfake & Scam Analyzer
 Uses Error Level Analysis (ELA), metadata heuristics, and raw byte text inspection.
 """
+import base64
 import io
 import math
 import re
@@ -11,11 +12,11 @@ from typing import List, Tuple
 from schemas import EvidenceItem
 
 
-def _ela_score(img: Image.Image, quality: int = 90) -> float:
+def _compute_ela(img: Image.Image, quality: int = 90) -> Tuple[float, str]:
     """
     Error Level Analysis: re-save at lower quality, compute pixel diff.
     Higher ELA variance -> possible manipulation.
-    Returns a 0–1 score where higher = more suspicious.
+    Returns (score, base64_png_data_url).
     """
     buffer = io.BytesIO()
     img_rgb = img.convert("RGB")
@@ -24,15 +25,34 @@ def _ela_score(img: Image.Image, quality: int = 90) -> float:
     recompressed = Image.open(buffer)
 
     diff = ImageChops.difference(img_rgb, recompressed.convert("RGB"))
-    enhanced = ImageEnhance.Brightness(diff).enhance(10)
+    enhanced = ImageEnhance.Brightness(diff).enhance(12)
 
     pixels = list(enhanced.getdata())
     total = len(pixels)
     if total == 0:
-        return 0.0
+        return 0.0, ""
 
     avg_brightness = sum(max(p) if isinstance(p, tuple) else p for p in pixels) / total
-    return min(avg_brightness / 255.0, 1.0)
+    score = min(avg_brightness / 255.0, 1.0)
+
+    # Generate a lightweight web-friendly PNG data URL for visual inspection
+    out_buf = io.BytesIO()
+    w, h = enhanced.size
+    if max(w, h) > 640:
+        scale = 640 / max(w, h)
+        preview_img = enhanced.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+    else:
+        preview_img = enhanced
+    preview_img.save(out_buf, "PNG", optimize=True)
+    b64_str = base64.b64encode(out_buf.getvalue()).decode("ascii")
+    data_url = f"data:image/png;base64,{b64_str}"
+
+    return score, data_url
+
+
+def _ela_score(img: Image.Image, quality: int = 90) -> float:
+    score, _ = _compute_ela(img, quality)
+    return score
 
 
 def _check_metadata(img: Image.Image) -> Tuple[float, str]:
@@ -145,11 +165,11 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             ))
 
         # 2. ELA
-        ela = _ela_score(img)
+        ela, ela_visual_data = _compute_ela(img)
         ela_risk = ela * 0.9
         evidence.append(EvidenceItem(
             label="Error Level Analysis (ELA)",
-            value=f"{ela:.3f} deviation index",
+            value=f"{ela:.3f} deviation index (visual heatmap generated)",
             risk_contribution=ela_risk,
             severity="high" if ela_risk > 0.5 else "medium" if ela_risk > 0.25 else "low",
         ))
@@ -229,6 +249,7 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             "recommendations": recommendations,
             "risk_level": verdict,
             "confidence": risk_score / 100.0,
+            "visual_artifact": ela_visual_data,
         }
     except Exception as e:
         return {
@@ -239,6 +260,7 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             "recommendations": ["Upload a valid JPEG or PNG file."],
             "risk_level": "SUSPICIOUS",
             "confidence": 0.5,
+            "visual_artifact": None,
         }
 
 

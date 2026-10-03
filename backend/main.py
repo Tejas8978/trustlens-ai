@@ -38,6 +38,36 @@ if "*" in ALLOWED_ORIGINS:
 # credentials can't be combined with wildcard origins (CORS spec)
 _allow_credentials: bool = ALLOWED_ORIGINS != ["*"]
 
+import time
+from collections import defaultdict
+
+# Rate limiter settings: max 45 requests per 60s per client IP on forensic analysis endpoints
+RATE_LIMIT_WINDOW = 60.0
+RATE_LIMIT_MAX_REQUESTS = 45
+_request_history = defaultdict(list)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    if request.url.path.startswith("/api/analyze"):
+        forwarded_for = request.headers.get("x-forwarded-for")
+        client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "unknown")
+
+        now = time.time()
+        # Filter timestamps within sliding window
+        recent_timestamps = [t for t in _request_history[client_ip] if now - t < RATE_LIMIT_WINDOW]
+        if len(recent_timestamps) >= RATE_LIMIT_MAX_REQUESTS:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many analysis requests. Please wait a moment before trying again."},
+                headers={"Retry-After": "30"}
+            )
+        recent_timestamps.append(now)
+        _request_history[client_ip] = recent_timestamps
+
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -45,6 +75,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 @app.exception_handler(RequestValidationError)

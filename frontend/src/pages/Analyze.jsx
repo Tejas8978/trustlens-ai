@@ -77,7 +77,7 @@ export default function Analyze() {
           Analyze <span className="text-gradient">Your Content</span>
         </h1>
         <p className="analyze-desc">
-          Upload an image, audio, video or paste a message. TrustLens AI will
+          Upload an image, audio, video, inspect a website URL, or paste a message. TrustLens AI will
           scan it instantly and return an explainable risk report.
         </p>
       </div>
@@ -100,10 +100,10 @@ export default function Analyze() {
                 <Shield size={48} />
               </div>
               <h3>Ready to Scan</h3>
-              <p>Select a file type, upload your content, and click <strong>Analyze Now</strong> to see the risk report here.</p>
+              <p>Select a mode, upload or paste your content, and click <strong>Analyze Now</strong> to see the risk report here.</p>
               <div className="placeholder-tips">
-                <p className="tip">💡 Try pasting a suspicious SMS or email for instant scam detection</p>
-                <p className="tip">💡 Upload any photo to check for AI generation artifacts</p>
+                <p className="tip">💡 Inspect suspicious URLs, links, SMS messages, or emails for instant scam detection</p>
+                <p className="tip">💡 Upload any photo to check for AI generation artifacts and ELA compression heatmaps</p>
               </div>
             </div>
           )}

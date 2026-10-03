@@ -4,7 +4,160 @@ Uses rule-based NLP: keyword scoring, URL analysis, urgency patterns.
 """
 import re
 from typing import List, Tuple
+from urllib.parse import urlparse
 from schemas import EvidenceItem
+
+SUSPICIOUS_TLDS = {
+    "tk", "ml", "ga", "cf", "gq", "top", "xyz", "buzz", "work", "click",
+    "rest", "icu", "cam", "sbs", "monster", "bar", "download", "stream",
+    "win", "bid", "loan", "men", "party", "accountant", "date", "faith"
+}
+
+SHORTENERS = {
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "cutt.ly",
+    "is.gd", "rb.gy", "rebrand.ly", "buff.ly"
+}
+
+TARGETED_BRANDS = [
+    "paypal", "apple", "google", "microsoft", "netflix", "amazon",
+    "chase", "wellsfargo", "bankofamerica", "citibank", "hsbc",
+    "binance", "coinbase", "metamask", "whatsapp", "telegram",
+    "facebook", "instagram", "steam", "fedex", "ups", "usps", "dhl"
+]
+
+
+def analyze_url(raw_url: str) -> dict:
+    url = raw_url.strip()
+    if not url.startswith(("http://", "https://")):
+        url_to_parse = "https://" + url
+    else:
+        url_to_parse = url
+
+    try:
+        parsed = urlparse(url_to_parse)
+        host = (parsed.hostname or "").lower()
+        path = (parsed.path or "").lower()
+    except Exception:
+        host = ""
+        path = ""
+
+    evidence: List[EvidenceItem] = []
+    risks = []
+
+    # 1. Protocol Security
+    is_http = raw_url.strip().lower().startswith("http://")
+    proto_risk = 0.45 if is_http else 0.0
+    evidence.append(EvidenceItem(
+        label="Protocol Encryption",
+        value="Unencrypted HTTP connection" if is_http else "Encrypted HTTPS scheme detected",
+        risk_contribution=proto_risk,
+        severity="medium" if is_http else "low"
+    ))
+    risks.append(proto_risk)
+
+    # 2. IP Address as Host
+    is_ip = bool(re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", host))
+    ip_risk = 0.85 if is_ip else 0.0
+    evidence.append(EvidenceItem(
+        label="Host Structure",
+        value=f"Raw IP address used as hostname ({host}) — high phishing correlation" if is_ip else f"Valid domain format ({host})",
+        risk_contribution=ip_risk,
+        severity="high" if is_ip else "low"
+    ))
+    risks.append(ip_risk)
+
+    # 3. Suspicious / Abused TLD
+    tld = host.split(".")[-1] if "." in host else ""
+    tld_suspicious = tld in SUSPICIOUS_TLDS
+    tld_risk = 0.65 if tld_suspicious else 0.0
+    evidence.append(EvidenceItem(
+        label="Top-Level Domain (TLD) Reputation",
+        value=f"High-abuse TLD detected (.{tld})" if tld_suspicious else f"Standard TLD (.{tld})",
+        risk_contribution=tld_risk,
+        severity="high" if tld_suspicious else "low"
+    ))
+    risks.append(tld_risk)
+
+    # 4. URL Shortener / Redirect Cloak
+    is_shortener = host in SHORTENERS
+    short_risk = 0.55 if is_shortener else 0.0
+    evidence.append(EvidenceItem(
+        label="Link Cloaking / Shortener",
+        value=f"URL Shortener detected ({host}) hiding real destination" if is_shortener else "Direct unshortened destination link",
+        risk_contribution=short_risk,
+        severity="medium" if is_shortener else "low"
+    ))
+    risks.append(short_risk)
+
+    # 5. Brand Impersonation / Typosquatting
+    impersonated = []
+    for brand in TARGETED_BRANDS:
+        if brand in host:
+            parts = host.split(".")
+            root_domain = ".".join(parts[-2:]) if len(parts) >= 2 else host
+            if root_domain not in (f"{brand}.com", f"{brand}.org", f"{brand}.net", f"{brand}.co"):
+                impersonated.append(brand)
+
+    brand_risk = 0.90 if impersonated else 0.0
+    evidence.append(EvidenceItem(
+        label="Brand Impersonation & Typosquatting",
+        value=f"Impersonation detected targeting: {', '.join(impersonated)}" if impersonated else "No obvious brand name spoofing in domain",
+        risk_contribution=brand_risk,
+        severity="high" if brand_risk > 0.5 else "low"
+    ))
+    risks.append(brand_risk)
+
+    # 6. Credential Harvesting Cues in Path
+    harvesting_cues = ["login", "signin", "verify", "auth", "account", "security", "update", "wallet", "seed", "kyc", "banking", "recovery"]
+    found_cues = [c for c in harvesting_cues if c in path or c in host]
+    path_risk = min(0.35 * len(found_cues), 0.85)
+    evidence.append(EvidenceItem(
+        label="Credential Harvesting Indicators",
+        value=f"Sensitive account keywords in URL: {', '.join(found_cues)}" if found_cues else "No credential-harvesting triggers in path",
+        risk_contribution=path_risk,
+        severity="high" if path_risk > 0.5 else "medium" if path_risk > 0.2 else "low"
+    ))
+    risks.append(path_risk)
+
+    # Calculate overall risk
+    max_risk = max(risks)
+    active_risks = [r for r in risks if r > 0.15]
+    if max_risk >= 0.65:
+        overall_risk = max_risk
+        if len(active_risks) > 1:
+            overall_risk = min(overall_risk + 0.15 * (len(active_risks) - 1), 1.0)
+    else:
+        overall_risk = sum(active_risks) / 2.0
+        overall_risk = min(max(overall_risk, max_risk), 1.0)
+
+    risk_score = round(min(overall_risk * 100, 100), 1)
+
+    if risk_score >= 60:
+        verdict = "HIGH_RISK"
+        summary = "Malicious or fraudulent URL detected. High probability of phishing or credential theft."
+    elif risk_score >= 30:
+        verdict = "SUSPICIOUS"
+        summary = "Suspicious URL characteristics detected. Do not enter passwords or personal data."
+    else:
+        verdict = "SAFE"
+        summary = "URL appears safe. No typical phishing or obfuscation patterns detected."
+
+    recommendations = [
+        "Do NOT enter any personal details, usernames, or passwords on this site." if verdict != "SAFE" else "Always verify SSL padlock and exact domain spelling.",
+        "Check domain registration and certificate details before interacting." if verdict != "SAFE" else "Exercise standard browsing precautions.",
+        "Report phishing links to Google Safe Browsing and PhishTank." if verdict == "HIGH_RISK" else "Ensure your browser's anti-phishing protection is active."
+    ]
+
+    return {
+        "risk_score": risk_score,
+        "verdict": verdict,
+        "summary": summary,
+        "evidence": evidence,
+        "recommendations": recommendations,
+        "risk_level": verdict,
+        "confidence": risk_score / 100.0,
+    }
+
 
 
 # ── Keyword banks ──────────────────────────────────────────────────────────────
@@ -117,8 +270,11 @@ def _grammar_score(text: str) -> Tuple[float, str]:
 
 def analyze_text(text: str, mode: str = "sms") -> dict:
     """
-    mode: 'sms' or 'email'
+    mode: 'sms', 'email', or 'url'
     """
+    if mode == "url":
+        return analyze_url(text)
+
     try:
         evidence: List[EvidenceItem] = []
 

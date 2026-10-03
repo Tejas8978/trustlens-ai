@@ -1,0 +1,17 @@
+{
+  "name": "TrustLens AI",
+  "short_name": "TrustLens",
+  "description": "Explainable deepfake and scam detection platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07080d",
+  "theme_color": "#0a0c14",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

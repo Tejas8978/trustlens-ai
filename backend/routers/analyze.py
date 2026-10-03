@@ -41,6 +41,11 @@ AI_PROMPTS = {
         "malicious links, impersonated brands, credential harvesting language, and social engineering "
         "patterns. Cross-reference with known phishing signatures. Return structured threat report."
     ),
+    "url": (
+        "You are a cybersecurity phishing & malicious link analyst AI. Inspect the provided URL "
+        "for brand impersonation, typosquatting, raw IP usage, high-abuse TLDs, credential harvesting paths, "
+        "and obfuscation tricks. Return: risk_score (0-100), verdict, evidence, and recommendations."
+    ),
 }
 
 
@@ -108,11 +113,11 @@ async def analyze_video_endpoint(
 @router.post("/text", response_model=AnalysisResult)
 async def analyze_text_endpoint(
     text: str = Form(...),
-    mode: str = Form("sms"),   # sms | email
+    mode: str = Form("sms"),   # sms | email | url
 ):
     if not text.strip():
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
-    if mode not in ("sms", "email"):
+        raise HTTPException(status_code=400, detail="Input text cannot be empty")
+    if mode not in ("sms", "email", "url"):
         mode = "sms"
 
     result = analyze_text(text, mode)

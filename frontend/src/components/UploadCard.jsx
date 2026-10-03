@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, Image, Volume2, Video, MessageSquare, Mail, X, FileText, Loader } from 'lucide-react';
+import { Upload, Image, Volume2, Video, MessageSquare, Mail, Globe, X, FileText, Loader } from 'lucide-react';
 import { getApiUrl } from '../api/config';
 import './UploadCard.css';
 
@@ -39,6 +39,7 @@ const TABS = [
   { id: 'image', label: 'Image', icon: <Image size={16} />, accept: 'image/*', endpoint: '/api/analyze/image' },
   { id: 'audio', label: 'Audio', icon: <Volume2 size={16} />, accept: 'audio/*', endpoint: '/api/analyze/audio' },
   { id: 'video', label: 'Video', icon: <Video size={16} />, accept: 'video/*', endpoint: '/api/analyze/video' },
+  { id: 'url',   label: 'URL',   icon: <Globe size={16} />, accept: null, endpoint: '/api/analyze/text' },
   { id: 'sms',   label: 'SMS',   icon: <MessageSquare size={16} />, accept: null, endpoint: '/api/analyze/text' },
   { id: 'email', label: 'Email', icon: <Mail size={16} />, accept: null, endpoint: '/api/analyze/text' },
 ];
@@ -53,7 +54,7 @@ export default function UploadCard({ onResult, onLoading }) {
   const fileRef = useRef(null);
 
   const tab = TABS.find(t => t.id === activeTab);
-  const isText = activeTab === 'sms' || activeTab === 'email';
+  const isText = activeTab === 'sms' || activeTab === 'email' || activeTab === 'url';
 
   function handleFile(f) {
     setFile(f);
@@ -71,7 +72,7 @@ export default function UploadCard({ onResult, onLoading }) {
     setError('');
 
     if (isText && !text.trim()) {
-      setError('Please paste a message to analyze.');
+      setError(activeTab === 'url' ? 'Please enter a URL to inspect.' : 'Please paste content to analyze.');
       return;
     }
     if (!isText && !file) {
@@ -115,7 +116,12 @@ export default function UploadCard({ onResult, onLoading }) {
         // Do NOT set Content-Type manually — axios must set it with the correct boundary
         res = await axios.post(`${API}${tab.endpoint}`, form, { timeout: 60000 });
       }
-      onResult(res.data);
+      
+      const payload = {
+        ...res.data,
+        previewUrl: (!isText && file && file.type?.startsWith('image/')) ? URL.createObjectURL(file) : null,
+      };
+      onResult(payload);
     } catch (err) {
       const status = err.response?.status;
       if (!status || status === 502 || status === 503 || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
@@ -163,14 +169,16 @@ export default function UploadCard({ onResult, onLoading }) {
         {isText ? (
           <div className="text-input-area">
             <label className="input-label">
-              {activeTab === 'sms' ? '📱 Paste SMS / Text Message' : '📧 Paste Email Content'}
+              {activeTab === 'url' ? '🌐 Inspect Website URL or Link' : activeTab === 'sms' ? '📱 Paste SMS / Text Message' : '📧 Paste Email Content'}
             </label>
             <textarea
               id={`${activeTab}-input`}
               className="cyber-input"
-              rows={8}
+              rows={activeTab === 'url' ? 4 : 8}
               placeholder={
-                activeTab === 'sms'
+                activeTab === 'url'
+                  ? 'https://example-secure-bank-login.com/account/verify...'
+                  : activeTab === 'sms'
                   ? 'Paste the suspicious SMS message here...'
                   : 'Paste the email body or subject + body here...'
               }
@@ -178,7 +186,9 @@ export default function UploadCard({ onResult, onLoading }) {
               onChange={e => setText(e.target.value)}
             />
             <p className="input-hint">
-              {text.length > 0 ? `${text.length} characters` : 'Tip: include the full message for best accuracy'}
+              {activeTab === 'url'
+                ? 'Analyzes domain homoglyphs, brand spoofing, raw IP hosts, suspicious TLDs, and cloaking'
+                : text.length > 0 ? `${text.length} characters` : 'Tip: include the full message for best accuracy'}
             </p>
           </div>
         ) : (

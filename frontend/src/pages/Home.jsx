@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Shield, Image, Volume2, Video, MessageSquare, Mail, ArrowRight, Zap } from 'lucide-react';
+import { Shield, Image, Volume2, Video, MessageSquare, Mail, Globe, ArrowRight, Zap } from 'lucide-react';
 import './Home.css';
 
 const FEATURES = [
@@ -28,6 +28,14 @@ const FEATURES = [
     border: 'rgba(255,0,110,0.3)',
   },
   {
+    icon: <Globe size={24} />,
+    title: 'Phishing URLs & Links',
+    desc: 'Homoglyph spoofing, malicious TLDs, cloaked redirects, credential-harvesting cues.',
+    color: 'var(--cyan)',
+    glow: 'var(--cyan-glow)',
+    border: 'var(--cyan-border)',
+  },
+  {
     icon: <MessageSquare size={24} />,
     title: 'Scam SMS',
     desc: 'Urgency phrases, reward lures, threat language, brand impersonation detection.',
@@ -54,11 +62,12 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { value: '5', label: 'Detection Modes' },
+  { value: '6', label: 'Detection Modes' },
   { value: '0', label: 'API Keys Needed' },
   { value: '100%', label: 'Local & Private' },
   { value: '∞', label: 'Explainable Results' },
 ];
+
 
 export default function Home() {
   return (

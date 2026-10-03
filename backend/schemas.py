@@ -19,6 +19,8 @@ class AnalysisResult(BaseModel):
     evidence: List[EvidenceItem]
     recommendations: List[str]
     ai_builder_prompt: str
+    visual_artifact: Optional[str] = None
+
 
 
 class ScanLogOut(BaseModel):
