@@ -5,10 +5,22 @@ Shannon entropy, and multi-factor URL heuristics.
 """
 import math
 import re
-import unicodedata
+import os
+import sys
 from typing import Dict, List, Tuple
 from urllib.parse import urlparse
-from schemas import EvidenceItem
+
+_BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+
+try:
+    from schemas import EvidenceItem
+except ImportError:
+    try:
+        from ..schemas import EvidenceItem  # type: ignore
+    except ImportError:
+        from backend.schemas import EvidenceItem  # type: ignore
 
 # Top-level domains heavily abused by phishing / bulletproof infrastructure
 SUSPICIOUS_TLDS = {

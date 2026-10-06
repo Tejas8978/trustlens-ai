@@ -15,22 +15,45 @@ import io
 import math
 import os
 import re
+import sys
 from typing import List, Optional, Tuple
-import numpy as np
-from PIL import Image, ImageChops, ImageEnhance, ExifTags, ImageStat
+
+_BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+
+try:
+    from schemas import EvidenceItem
+except ImportError:
+    try:
+        from ..schemas import EvidenceItem  # type: ignore
+    except ImportError:
+        from backend.schemas import EvidenceItem  # type: ignore
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
+
+try:
+    from PIL import Image, ImageChops, ImageEnhance, ExifTags, ImageStat
+except ImportError:
+    Image = ImageChops = ImageEnhance = ExifTags = ImageStat = None  # type: ignore
+
 import httpx
-from schemas import EvidenceItem
 
 try:
     import cv2
     CV2_AVAILABLE = True
 except ImportError:
+    cv2 = None  # type: ignore
     CV2_AVAILABLE = False
 
 try:
     import torch
     TORCH_AVAILABLE = True
 except ImportError:
+    torch = None  # type: ignore
     TORCH_AVAILABLE = False
 
 
