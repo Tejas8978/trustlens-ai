@@ -79,6 +79,16 @@ export default function Navbar() {
 
         {/* Desktop Action Buttons */}
         <div className="nav-actions">
+          <button
+            type="button"
+            className="nav-settings-btn"
+            onClick={() => setShowSettings(true)}
+            title="Configure Backend Connection"
+            id="nav-settings-btn"
+          >
+            <Settings size={15} />
+          </button>
+
           {user ? (
             <div className="nav-user-badge">
               <div className="user-avatar-circle">
@@ -102,22 +112,13 @@ export default function Navbar() {
           ) : (
             <Link to="/login" className="nav-login-link" id="nav-login-btn">
               <Key size={14} />
-              <span>Sign In</span>
+              <span>Log In</span>
             </Link>
           )}
 
-          <button
-            type="button"
-            className="nav-settings-btn"
-            onClick={() => setShowSettings(true)}
-            title="Configure Backend Connection"
-            id="nav-settings-btn"
-          >
-            <Settings size={15} />
-          </button>
-
           <Link to="/analyze" className="btn btn-primary nav-cta" id="nav-scan-btn">
-            Start Scan
+            <Shield size={14} />
+            <span>Start Scan</span>
           </Link>
 
           {/* Mobile Hamburger Button */}
