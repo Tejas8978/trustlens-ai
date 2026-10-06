@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import database
-from routers import analyze, history
+from routers import analyze, history, auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -100,6 +100,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 app.include_router(analyze.router)
 app.include_router(history.router)
+app.include_router(auth.router)
 
 
 @app.get("/")
@@ -108,7 +109,17 @@ def root():
         "name": "TrustLens AI",
         "version": "1.0.0",
         "status": "operational",
-        "endpoints": ["/api/analyze/image", "/api/analyze/audio", "/api/analyze/video", "/api/analyze/text", "/api/history/"],
+        "endpoints": [
+            "/api/analyze/image",
+            "/api/analyze/audio",
+            "/api/analyze/video",
+            "/api/analyze/text",
+            "/api/history/",
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/logs",
+            "/api/auth/users",
+        ],
     }
 
 

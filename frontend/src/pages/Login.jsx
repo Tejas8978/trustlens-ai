@@ -17,6 +17,8 @@ import {
   Cpu,
   Sparkles
 } from 'lucide-react';
+import axios from 'axios';
+import { getApiUrl } from '../api/config';
 import './Login.css';
 
 export default function Login() {
@@ -27,6 +29,7 @@ export default function Login() {
   const [biometricScanning, setBiometricScanning] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [mongoStatus, setMongoStatus] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -34,6 +37,7 @@ export default function Login() {
     password: '',
     role: 'Forensic Analyst',
     rememberMe: true,
+    authType: 'password',
   });
 
   // Calculate password strength (0-100)
@@ -65,10 +69,11 @@ export default function Login() {
       password: 'CyberSecurity#2026',
       role: role,
       rememberMe: true,
+      authType: 'quick_demo',
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.email || !formData.password) {
       setError('Please provide all authentication credentials.');
@@ -82,52 +87,108 @@ export default function Login() {
     setIsLoading(true);
     setError('');
 
-    // Simulate cyber authentication handshake
-    setTimeout(() => {
+    const API = getApiUrl();
+    const endpoint = isRegister ? `${API}/api/auth/register` : `${API}/api/auth/login`;
+    const payload = {
+      email: formData.email.trim(),
+      password: formData.password,
+      name: formData.name ? formData.name.trim() : formData.email.split('@')[0],
+      role: formData.role,
+      auth_type: isRegister ? 'register' : (formData.authType || 'password'),
+      auth_level: isRegister ? 'LEVEL 4 // CLEARANCE GRANTED' : undefined
+    };
+
+    let userProfile = {
+      name: payload.name,
+      email: payload.email,
+      role: payload.role,
+      authLevel: 'LEVEL 4 // CLEARANCE GRANTED',
+      loggedInAt: new Date().toISOString(),
+      mongodbConnected: false
+    };
+
+    try {
+      const res = await axios.post(endpoint, payload, { timeout: 15000 });
+      if (res.data) {
+        userProfile = {
+          id: res.data.id,
+          name: res.data.name || payload.name,
+          email: res.data.email || payload.email,
+          role: res.data.role || payload.role,
+          authLevel: res.data.auth_level || 'LEVEL 4 // CLEARANCE GRANTED',
+          loginCount: res.data.login_count,
+          lastLogin: res.data.last_login,
+          loggedInAt: new Date().toISOString(),
+          mongodbConnected: res.data.mongodb_connected ?? true
+        };
+        setMongoStatus('Fed to MongoDB');
+      }
+    } catch (err) {
+      console.warn('Backend MongoDB auth sync error (using local fallback session):', err);
+      setMongoStatus('Local Session (Offline)');
+    } finally {
       setIsLoading(false);
       setSuccess(true);
-      const userProfile = {
-        name: formData.name || formData.email.split('@')[0],
-        email: formData.email,
-        role: formData.role,
-        authLevel: 'LEVEL 4 // CLEARANCE GRANTED',
-        loggedInAt: new Date().toISOString()
-      };
-      localStorage.setItem('trustlens_user', JSON.stringify(userProfile));
-      window.dispatchEvent(new Event('authChange'));
-
-      setTimeout(() => {
-        navigate('/analyze');
-      }, 1400);
-    }, 1200);
-  };
-
-  const handleBiometricAuth = () => {
-    setBiometricScanning(true);
-    setError('');
-    setTimeout(() => {
-      setBiometricScanning(false);
-      setFormData(prev => ({
-        ...prev,
-        email: 'operative.lead@trustlens.ai',
-        password: 'BiometricVerified#2026',
-        name: 'Lead Cryptanalyst',
-      }));
-      setSuccess(true);
-      const userProfile = {
-        name: 'Lead Cryptanalyst',
-        email: 'operative.lead@trustlens.ai',
-        role: 'Biometric Authenticated Operative',
-        authLevel: 'LEVEL 5 // BIOMETRIC MASTER',
-        loggedInAt: new Date().toISOString()
-      };
       localStorage.setItem('trustlens_user', JSON.stringify(userProfile));
       window.dispatchEvent(new Event('authChange'));
 
       setTimeout(() => {
         navigate('/analyze');
       }, 1300);
-    }, 1500);
+    }
+  };
+
+  const handleBiometricAuth = async () => {
+    setBiometricScanning(true);
+    setError('');
+
+    const API = getApiUrl();
+    const payload = {
+      email: 'operative.lead@trustlens.ai',
+      name: 'Lead Cryptanalyst',
+      role: 'Biometric Authenticated Operative',
+      auth_type: 'biometric',
+      auth_level: 'LEVEL 5 // BIOMETRIC MASTER'
+    };
+
+    let userProfile = {
+      name: payload.name,
+      email: payload.email,
+      role: payload.role,
+      authLevel: payload.auth_level,
+      loggedInAt: new Date().toISOString(),
+      mongodbConnected: false
+    };
+
+    try {
+      const res = await axios.post(`${API}/api/auth/login`, payload, { timeout: 15000 });
+      if (res.data) {
+        userProfile = {
+          id: res.data.id,
+          name: res.data.name || payload.name,
+          email: res.data.email || payload.email,
+          role: res.data.role || payload.role,
+          authLevel: res.data.auth_level || payload.auth_level,
+          loginCount: res.data.login_count,
+          lastLogin: res.data.last_login,
+          loggedInAt: new Date().toISOString(),
+          mongodbConnected: res.data.mongodb_connected ?? true
+        };
+        setMongoStatus('Biometric Fed to MongoDB');
+      }
+    } catch (err) {
+      console.warn('Biometric MongoDB feed error (using local fallback):', err);
+      setMongoStatus('Local Session (Offline)');
+    } finally {
+      setBiometricScanning(false);
+      setSuccess(true);
+      localStorage.setItem('trustlens_user', JSON.stringify(userProfile));
+      window.dispatchEvent(new Event('authChange'));
+
+      setTimeout(() => {
+        navigate('/analyze');
+      }, 1300);
+    }
   };
 
   return (
@@ -185,8 +246,8 @@ export default function Login() {
               <div className="success-status-box">
                 <span className="status-label">ENCRYPTION:</span>
                 <span className="status-val">AES-GCM-256</span>
-                <span className="status-label">AUTH TOKEN:</span>
-                <span className="status-val">TLS-OK-8849F</span>
+                <span className="status-label">MONGODB FEED:</span>
+                <span className="status-val" style={{ color: '#00f3ff' }}>{mongoStatus || 'RECORDED & SYNCD'}</span>
               </div>
               <div className="success-loading-bar">
                 <div className="loading-fill" />
