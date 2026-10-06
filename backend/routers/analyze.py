@@ -66,48 +66,79 @@ def _save_scan(result: dict, scan_type: str, filename: Optional[str]):
 async def analyze_image_endpoint(
     file: UploadFile = File(...),
 ):
+    import gc
     content = await file.read()
-    if len(content) > 20 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large (max 20MB)")
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 15MB)")
 
-    result = analyze_image(content, file.filename or "upload.jpg")
-    result["scan_type"] = "image"
-    result["filename"] = file.filename
-    result["ai_builder_prompt"] = AI_PROMPTS["image"]
-    _save_scan(result, "image", file.filename)
-    return AnalysisResult(**result)
+    try:
+        result = analyze_image(content, file.filename or "upload.jpg")
+        result["scan_type"] = "image"
+        result["filename"] = file.filename
+        result["ai_builder_prompt"] = AI_PROMPTS["image"]
+        _save_scan(result, "image", file.filename)
+        return AnalysisResult(**result)
+    finally:
+        del content
+        gc.collect()
 
 
 @router.post("/audio", response_model=AnalysisResult)
 async def analyze_audio_endpoint(
     file: UploadFile = File(...),
 ):
+    import gc
     content = await file.read()
-    if len(content) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 25MB)")
 
-    result = analyze_audio(content, file.filename or "upload.wav")
-    result["scan_type"] = "audio"
-    result["filename"] = file.filename
-    result["ai_builder_prompt"] = AI_PROMPTS["audio"]
-    _save_scan(result, "audio", file.filename)
-    return AnalysisResult(**result)
+    try:
+        result = analyze_audio(content, file.filename or "upload.wav")
+        result["scan_type"] = "audio"
+        result["filename"] = file.filename
+        result["ai_builder_prompt"] = AI_PROMPTS["audio"]
+        _save_scan(result, "audio", file.filename)
+        return AnalysisResult(**result)
+    finally:
+        del content
+        gc.collect()
 
 
 @router.post("/video", response_model=AnalysisResult)
 async def analyze_video_endpoint(
     file: UploadFile = File(...),
 ):
-    content = await file.read()
-    if len(content) > 200 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large (max 200MB)")
+    import gc
+    import os
+    import tempfile
 
-    result = analyze_video(content, file.filename or "upload.mp4")
-    result["scan_type"] = "video"
-    result["filename"] = file.filename
-    result["ai_builder_prompt"] = AI_PROMPTS["video"]
-    _save_scan(result, "video", file.filename)
-    return AnalysisResult(**result)
+    suffix = os.path.splitext(file.filename or "")[1] or ".mp4"
+    total_size = 0
+    max_size = 100 * 1024 * 1024  # 100MB max limit to stay well within container capacity
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp_path = tmp.name
+            while chunk := await file.read(1024 * 1024):  # 1MB stream chunks to save RAM
+                total_size += len(chunk)
+                if total_size > max_size:
+                    raise HTTPException(status_code=413, detail="File too large (max 100MB)")
+                tmp.write(chunk)
+
+        result = analyze_video(tmp_path, file.filename or "upload.mp4")
+        result["scan_type"] = "video"
+        result["filename"] = file.filename
+        result["ai_builder_prompt"] = AI_PROMPTS["video"]
+        _save_scan(result, "video", file.filename)
+        return AnalysisResult(**result)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+        gc.collect()
 
 
 @router.post("/text", response_model=AnalysisResult)

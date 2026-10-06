@@ -10,13 +10,14 @@ Uses multi-tiered forensics:
 7. Optional Hybrid Cloud Forensic API fallback (Sightengine / custom endpoint).
 """
 import base64
+import gc
 import io
 import math
 import os
 import re
 from typing import List, Optional, Tuple
 import numpy as np
-from PIL import Image, ImageChops, ImageEnhance, ExifTags
+from PIL import Image, ImageChops, ImageEnhance, ExifTags, ImageStat
 import httpx
 from schemas import EvidenceItem
 
@@ -39,8 +40,14 @@ def _compute_ela(img: Image.Image, quality: int = 90) -> Tuple[float, str]:
     Higher ELA variance -> possible manipulation or local compression mismatch.
     Returns (score, base64_png_data_url).
     """
-    buffer = io.BytesIO()
+    # Downscale for ELA computation to prevent memory spikes
+    w, h = img.size
     img_rgb = img.convert("RGB")
+    if max(w, h) > 640:
+        scale = 640 / max(w, h)
+        img_rgb = img_rgb.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
+
+    buffer = io.BytesIO()
     img_rgb.save(buffer, "JPEG", quality=quality)
     buffer.seek(0)
     recompressed = Image.open(buffer)
@@ -48,23 +55,14 @@ def _compute_ela(img: Image.Image, quality: int = 90) -> Tuple[float, str]:
     diff = ImageChops.difference(img_rgb, recompressed.convert("RGB"))
     enhanced = ImageEnhance.Brightness(diff).enhance(12)
 
-    pixels = list(enhanced.getdata())
-    total = len(pixels)
-    if total == 0:
-        return 0.0, ""
-
-    avg_brightness = sum(max(p) if isinstance(p, tuple) else p for p in pixels) / total
+    # Use native C ImageStat to compute channel brightness mean without allocating millions of python objects
+    stat = ImageStat.Stat(enhanced)
+    avg_brightness = sum(stat.mean) / max(len(stat.mean), 1)
     score = min(avg_brightness / 255.0, 1.0)
 
     # Generate a lightweight web-friendly PNG data URL for visual inspection
     out_buf = io.BytesIO()
-    w, h = enhanced.size
-    if max(w, h) > 640:
-        scale = 640 / max(w, h)
-        preview_img = enhanced.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
-    else:
-        preview_img = enhanced
-    preview_img.save(out_buf, "PNG", optimize=True)
+    enhanced.save(out_buf, "PNG", optimize=True)
     b64_str = base64.b64encode(out_buf.getvalue()).decode("ascii")
     data_url = f"data:image/png;base64,{b64_str}"
 
@@ -400,18 +398,9 @@ def _aspect_and_size_check(img: Image.Image) -> Tuple[float, str]:
 
 def _color_distribution(img: Image.Image) -> Tuple[float, str]:
     rgb = img.convert("RGB")
-    r, g, b = rgb.split()
-
-    def channel_std(ch):
-        pixels = list(ch.getdata())
-        if not pixels:
-            return 0.0
-        mean = sum(pixels) / len(pixels)
-        variance = sum((p - mean) ** 2 for p in pixels) / len(pixels)
-        return math.sqrt(variance)
-
-    stds = [channel_std(r), channel_std(g), channel_std(b)]
-    avg_std = sum(stds) / 3
+    stat = ImageStat.Stat(rgb)
+    # stat.stddev returns [r_std, g_std, b_std] calculated natively in C
+    avg_std = sum(stat.stddev) / max(len(stat.stddev), 1)
 
     if avg_std < 35:
         return 0.55, f"Unusually smooth color distribution (σ={avg_std:.1f}) — typical of AI images"
@@ -421,8 +410,10 @@ def _color_distribution(img: Image.Image) -> Tuple[float, str]:
 
 
 def _extract_text_from_bytes(data: bytes) -> str:
-    matches = re.findall(b"[ -~]{4,}", data)
-    return " ".join(m.decode("ascii", errors="ignore") for m in matches)
+    # Embedded text/metadata is located in headers or trailer comments (first 64KB + last 64KB)
+    sample = data[:65536] + (data[-65536:] if len(data) > 65536 else b"")
+    matches = re.findall(b"[ -~]{4,}", sample)
+    return " ".join(m.decode("ascii", errors="ignore") for m in matches[:1000])
 
 
 def _check_text_risk(text: str) -> Tuple[float, str]:
@@ -444,6 +435,12 @@ def _check_text_risk(text: str) -> Tuple[float, str]:
 def analyze_image(image_bytes: bytes, filename: str) -> dict:
     try:
         img = Image.open(io.BytesIO(image_bytes))
+        # Memory safety: downscale large images (e.g. 4K/8K) to max 1200px
+        max_dim = 1200
+        w, h = img.size
+        if max(w, h) > max_dim:
+            scale = max_dim / max(w, h)
+            img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
     except Exception:
         filename_lower = filename.lower()
         if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"]):
@@ -626,6 +623,11 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             "confidence": 0.5,
             "visual_artifact": None,
         }
+    finally:
+        try:
+            gc.collect()
+        except Exception:
+            pass
 
 
 def _get_recommendations(verdict: str, scan_type: str) -> List[str]:
