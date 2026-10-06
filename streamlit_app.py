@@ -14,8 +14,9 @@ if str(backend_path) not in sys.path:
 
 # Import pages
 try:
-    from pages import home, analyze, history
+    from pages import home, analyze, history  # type: ignore
 except ImportError as e:
+    home = analyze = history = None  # type: ignore
     st.error(f"Error importing pages: {e}")
     st.stop()
 

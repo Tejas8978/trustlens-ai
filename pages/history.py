@@ -13,8 +13,9 @@ if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
 try:
-    from database import get_history, delete_history, init_db
+    from database import get_history, delete_history, init_db  # type: ignore
 except ImportError as e:
+    get_history = delete_history = init_db = None  # type: ignore
     st.error(f"Error loading database: {e}")
     st.stop()
 

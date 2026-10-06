@@ -24,12 +24,10 @@ except ImportError:
         from backend.schemas import EvidenceItem  # type: ignore
 
 try:
-    import numpy as np
-    import soundfile as sf
+    import numpy as np  # type: ignore
+    import soundfile as sf  # type: ignore
     AUDIO_ENGINE_AVAILABLE = True
 except ImportError:
-    np = None  # type: ignore
-    sf = None  # type: ignore
     AUDIO_ENGINE_AVAILABLE = False
 
 

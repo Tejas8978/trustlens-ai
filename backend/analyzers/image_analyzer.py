@@ -36,9 +36,9 @@ except ImportError:
     np = None  # type: ignore
 
 try:
-    from PIL import Image, ImageChops, ImageEnhance, ExifTags, ImageStat
+    from PIL import Image, ImageChops, ImageEnhance, ExifTags, ImageStat  # type: ignore
 except ImportError:
-    Image = ImageChops = ImageEnhance = ExifTags = ImageStat = None  # type: ignore
+    pass
 
 import httpx
 

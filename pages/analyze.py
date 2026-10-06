@@ -14,12 +14,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils import get_risk_status, get_confidence_percentage
 
 try:
-    from analyzers.image_analyzer import analyze_image
-    from analyzers.video_analyzer import analyze_video
-    from analyzers.audio_analyzer import analyze_audio
-    from analyzers.text_analyzer import analyze_text
-    from database import add_history, init_db
+    from analyzers.image_analyzer import analyze_image  # type: ignore
+    from analyzers.video_analyzer import analyze_video  # type: ignore
+    from analyzers.audio_analyzer import analyze_audio  # type: ignore
+    from analyzers.text_analyzer import analyze_text  # type: ignore
+    from database import add_history, init_db  # type: ignore
 except ImportError as e:
+    analyze_image = analyze_video = analyze_audio = analyze_text = add_history = init_db = None  # type: ignore
     st.error(f"Error loading analyzers: {e}")
     st.info("Make sure all backend dependencies are installed.")
     st.stop()

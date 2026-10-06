@@ -4,9 +4,10 @@ Uses advanced rule-based NLP: homoglyph/leetspeak de-obfuscation, intent co-occu
 Shannon entropy, and multi-factor URL heuristics.
 """
 import math
-import re
 import os
+import re
 import sys
+import unicodedata
 from typing import Dict, List, Tuple
 from urllib.parse import urlparse
 

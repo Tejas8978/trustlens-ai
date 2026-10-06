@@ -24,12 +24,12 @@ except ImportError:
         from backend.schemas import EvidenceItem  # type: ignore
 
 try:
-    import numpy as np
+    import numpy as np  # type: ignore
 except ImportError:
-    np = None  # type: ignore
+    pass
 
 try:
-    import cv2
+    import cv2  # type: ignore
     CV2_AVAILABLE = True
 except ImportError:
     cv2 = None  # type: ignore

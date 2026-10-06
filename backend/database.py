@@ -3,6 +3,7 @@ TrustLens AI — MongoDB database layer (PyMongo)
 """
 import os
 from datetime import datetime, timezone
+from typing import Optional
 from bson import ObjectId
 from pymongo import MongoClient, DESCENDING
 from dotenv import load_dotenv
@@ -14,7 +15,7 @@ load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("MONGO_DB_NAME", "trustlens")
 
-_client: MongoClient = None
+_client: Optional[MongoClient] = None
 
 
 def get_client() -> MongoClient:
@@ -73,7 +74,7 @@ def add_history(data: dict) -> str:
 def get_history(
     skip: int = 0,
     limit: int = 50,
-    scan_type: str = None,
+    scan_type: Optional[str] = None,
 ) -> list:
     """Return scan logs, newest first, with optional type filter."""
     try:

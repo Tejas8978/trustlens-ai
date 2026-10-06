@@ -1,6 +1,14 @@
 {
-  "include": ["."],
-  "exclude": ["**/__pycache__"],
+  "include": [
+    "backend"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "pages",
+    "streamlit_app.py",
+    "frontend",
+    ".git"
+  ],
   "pythonVersion": "3.11",
   "pythonPlatform": "Windows",
   "typeCheckingMode": "off",
@@ -8,13 +16,13 @@
   "reportMissingModuleSource": "none",
   "reportOptionalMemberAccess": "none",
   "reportGeneralTypeIssues": "none",
-  "reportPossiblyUnboundVariable": "none",
   "reportUndefinedVariable": "error",
-  "useLibraryCodeForTypes": true,
   "executionEnvironments": [
     {
-      "root": ".",
-      "extraPaths": ["."]
+      "root": "backend",
+      "extraPaths": [
+        "backend"
+      ]
     }
   ]
 }
