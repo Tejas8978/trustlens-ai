@@ -95,17 +95,63 @@ def test_api_text_endpoint_url_mode():
     assert len(data["evidence"]) > 0
 
 
+def test_text_analyzer_homoglyph_deobfuscation():
+    # 'р' and 'а' are Cyrillic homoglyphs, and '1' is leetspeak for 'i'
+    obfuscated_scam = "URGENT: Your pаypal account will be suspended! Verify your b1tcoin wallet password immediately."
+    result = analyze_text(obfuscated_scam, mode="sms")
+    assert result["risk_score"] >= 60
+    assert result["verdict"] == "HIGH_RISK"
+    evidence_labels = [e.label for e in result["evidence"]]
+    assert "Brand Impersonation" in evidence_labels or "Sensitive Information Requests" in evidence_labels
+
+
+def test_text_analyzer_word_boundaries():
+    # "clockwise" contains "lock", "first" contains "irs"
+    benign_text = "Please turn clockwise on the first intersection to reach the park."
+    result = analyze_text(benign_text, mode="sms")
+    assert result["verdict"] == "SAFE"
+    assert result["risk_score"] < 30
+
+
+def test_url_analyzer_subdomain_deception_and_entropy():
+    # Brand is in subdomain prefix rather than registered domain, plus high-abuse TLD
+    deceptive_url = "http://paypal.com.account-verify-login.xyz/session"
+    result = analyze_url(deceptive_url)
+    assert result["verdict"] == "HIGH_RISK"
+    evidence_labels = [e.label for e in result["evidence"]]
+    assert "Brand Impersonation & Typosquatting" in evidence_labels
+    assert "Domain Randomness & Entropy" in evidence_labels or "Top-Level Domain (TLD) Reputation" in evidence_labels
+
+
+def test_image_analyzer_ai_evidence():
+    # Verify presence of multi-domain forensics on generated image
+    img = Image.new("RGB", (512, 512), color=(120, 140, 180))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    result = analyze_image(buf.getvalue(), "sample.png")
+
+    evidence_labels = [e.label for e in result["evidence"]]
+    assert "Frequency Spectrum Analysis (2D FFT)" in evidence_labels
+    assert "Sensor Noise & Texture Consistency" in evidence_labels
+    assert "Deep Feature Latent Analysis" in evidence_labels
+    assert "Error Level Analysis (ELA)" in evidence_labels
+
+
 if __name__ == "__main__":
     tests = [
         test_health_check,
         test_root_endpoint,
         test_image_analyzer_valid,
         test_image_analyzer_corrupted,
+        test_image_analyzer_ai_evidence,
         test_url_analyzer_phishing,
         test_url_analyzer_safe,
         test_text_analyzer_sms_scam,
         test_text_analyzer_benign,
         test_api_text_endpoint_url_mode,
+        test_text_analyzer_homoglyph_deobfuscation,
+        test_text_analyzer_word_boundaries,
+        test_url_analyzer_subdomain_deception_and_entropy,
     ]
     passed = 0
     for t in tests:
@@ -118,4 +164,6 @@ if __name__ == "__main__":
     print(f"\nCompleted: {passed}/{len(tests)} tests passed.")
     if passed < len(tests):
         sys.exit(1)
+
+
 

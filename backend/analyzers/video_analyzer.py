@@ -1,15 +1,17 @@
 """
 Video Deepfake Analyzer
-Samples frames from video and runs image analysis on each.
+Samples frames from video, inspects inter-frame temporal consistency & edge flickering,
+and executes multi-domain forensic analysis per frame.
 """
 import io
-import tempfile
 import os
-from typing import List
+import tempfile
+from typing import List, Tuple
 from schemas import EvidenceItem
 
 try:
     import cv2
+    import numpy as np
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
@@ -17,12 +19,37 @@ except ImportError:
 from analyzers.image_analyzer import analyze_image
 
 
+def _compute_temporal_jitter(gray1, gray2) -> Tuple[float, float]:
+    """
+    Computes inter-frame difference and edge instability (Laplacian variance flux).
+    Deepfake face swaps frequently suffer from temporal flickering and micro-boundary jitter.
+    """
+    try:
+        # Resize to standard analysis size if large
+        if gray1.shape[0] > 480 or gray1.shape[1] > 640:
+            g1 = cv2.resize(gray1, (320, 240))
+            g2 = cv2.resize(gray2, (320, 240))
+        else:
+            g1, g2 = gray1, gray2
+
+        # 1. Absolute pixel difference
+        abs_diff = cv2.absdiff(g1, g2)
+        diff_mean = float(np.mean(abs_diff))
+
+        # 2. Laplacian edge difference
+        lap1 = cv2.Laplacian(g1, cv2.CV_32F)
+        lap2 = cv2.Laplacian(g2, cv2.CV_32F)
+        edge_flux = float(np.mean(np.abs(lap1 - lap2)))
+
+        return diff_mean, edge_flux
+    except Exception:
+        return 0.0, 0.0
+
+
 def analyze_video(video_bytes: bytes, filename: str) -> dict:
-    # Filename heuristic
+    # Contextual filename check
     filename_lower = filename.lower()
-    filename_risk = 0.0
-    if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"]):
-        filename_risk = 0.95
+    filename_flag = any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"])
 
     if not CV2_AVAILABLE:
         return _fallback(video_bytes, filename)
@@ -46,23 +73,32 @@ def analyze_video(video_bytes: bytes, filename: str) -> dict:
             fps = 25
         duration = total_frames / fps
 
-        # Sample up to 8 frames evenly spaced
-        sample_count = min(8, max(1, total_frames // 30))
-        frame_indices = [int(i * total_frames / sample_count) for i in range(sample_count)]
+        # Sample up to 8 checkpoints throughout the video
+        sample_count = min(8, max(2, total_frames // 25)) if total_frames > 1 else 1
+        frame_indices = [int(i * (total_frames - 2) / max(sample_count - 1, 1)) for i in range(sample_count)]
 
         frame_scores = []
-        frame_evidence = []
+        temporal_edge_fluxes = []
 
         for idx in frame_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
-            if not ret:
+            if not ret or frame is None:
                 continue
+
+            # Read consecutive frame for temporal consistency analysis
+            ret_next, frame_next = cap.read()
+            if ret_next and frame_next is not None:
+                g1 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                g2 = cv2.cvtColor(frame_next, cv2.COLOR_BGR2GRAY)
+                _, edge_flux = _compute_temporal_jitter(g1, g2)
+                temporal_edge_fluxes.append(edge_flux)
+
+            # Analyze frame image
             _, img_bytes = cv2.imencode(".jpg", frame)
             try:
                 result = analyze_image(img_bytes.tobytes(), f"frame_{idx}.jpg")
                 frame_scores.append(result["risk_score"])
-                frame_evidence.append((idx, result["risk_score"], result["verdict"]))
             except Exception:
                 continue
 
@@ -80,55 +116,78 @@ def analyze_video(video_bytes: bytes, filename: str) -> dict:
 
     avg_score = sum(frame_scores) / len(frame_scores)
     max_score = max(frame_scores)
-    high_risk_frames = sum(1 for s in frame_scores if s >= 70)
+    high_risk_frames = sum(1 for s in frame_scores if s >= 65)
 
     evidence: List[EvidenceItem] = []
 
-    if filename_risk > 0:
+    if filename_flag:
         evidence.append(EvidenceItem(
-            label="Filename Flag",
-            value=f"Suspicious filename '{filename}' explicitly suggests video deepfake/fraud",
-            risk_contribution=filename_risk,
+            label="Filename Indicator",
+            value=f"Filename '{filename}' indicates potential video deepfake/fraud",
+            risk_contribution=0.80,
             severity="high"
         ))
 
+    # 1. Temporal consistency & flickering
+    temporal_risk = 0.0
+    if temporal_edge_fluxes:
+        mean_edge_flux = sum(temporal_edge_fluxes) / len(temporal_edge_fluxes)
+        # Deepfakes show unstable edge flickering (high edge variance flux)
+        if mean_edge_flux > 18.0:
+            temporal_risk = min(0.40 + (mean_edge_flux - 18.0) * 0.03, 0.85)
+            temporal_msg = f"Temporal edge flux={mean_edge_flux:.1f} — notable inter-frame texture flickering"
+        else:
+            temporal_risk = 0.10
+            temporal_msg = f"Temporal edge flux={mean_edge_flux:.1f} — smooth inter-frame motion consistency"
+    else:
+        temporal_risk = 0.15
+        temporal_msg = "Single-frame sequence evaluated"
+
+    evidence.append(EvidenceItem(
+        label="Temporal Consistency & Edge Flickering",
+        value=temporal_msg,
+        risk_contribution=temporal_risk,
+        severity="high" if temporal_risk > 0.55 else "medium" if temporal_risk > 0.3 else "low",
+    ))
+
+    # 2. Frame Analysis Summary
     evidence.extend([
         EvidenceItem(
             label="Frame Analysis Summary",
-            value=f"Analyzed {len(frame_scores)} frames from {duration:.1f}s video",
+            value=f"Analyzed {len(frame_scores)} key frames from {duration:.1f}s video",
             risk_contribution=avg_score / 100.0,
             severity="low",
         ),
         EvidenceItem(
             label="Average Frame Risk Score",
-            value=f"{avg_score:.1f}/100",
+            value=f"{avg_score:.1f}/100 across sampled timeline",
             risk_contribution=avg_score / 100.0,
             severity="high" if avg_score > 65 else "medium" if avg_score > 35 else "low",
         ),
         EvidenceItem(
             label="Peak Frame Risk",
-            value=f"{max_score:.1f}/100 (worst frame)",
+            value=f"{max_score:.1f}/100 (worst detected frame)",
             risk_contribution=max_score / 100.0,
             severity="high" if max_score > 70 else "medium" if max_score > 40 else "low",
         ),
         EvidenceItem(
             label="High-Risk Frame Count",
-            value=f"{high_risk_frames}/{len(frame_scores)} frames flagged as high risk",
+            value=f"{high_risk_frames}/{len(frame_scores)} frames flagged with deepfake/manipulation cues",
             risk_contribution=high_risk_frames / max(len(frame_scores), 1),
             severity="high" if high_risk_frames > 2 else "medium" if high_risk_frames > 0 else "low",
         ),
     ])
 
-    # Combined score calculation
-    base_score = avg_score * 0.6 + max_score * 0.4
-    risks = [base_score / 100.0]
-    if filename_risk > 0:
-        risks.append(filename_risk)
+    # Calibrated synthesis combining temporal consistency and frame artifacts
+    base_score = avg_score * 0.50 + max_score * 0.35 + (temporal_risk * 100.0) * 0.15
+    risks = [base_score / 100.0, temporal_risk]
+    if filename_flag:
+        risks.append(0.80)
 
     max_risk = max(risks)
-    active_risks = [r for r in risks if r > 0.15]
+    active_risks = [r for r in risks if r > 0.20]
     if len(active_risks) > 1:
-        overall_risk = min(max_risk + 0.12 * (len(active_risks) - 1), 1.0)
+        overall_risk = min(max_risk + 0.10 * (len(active_risks) - 1), 1.0)
     else:
         overall_risk = max_risk
 
@@ -136,13 +195,13 @@ def analyze_video(video_bytes: bytes, filename: str) -> dict:
 
     if risk_score >= 65:
         verdict = "HIGH_RISK"
-        summary = f"Deepfake indicators detected across multiple frames. {high_risk_frames} frame(s) flagged as high risk."
+        summary = f"Deepfake indicators detected across sampled video timeline ({high_risk_frames} high-risk frame(s) with temporal inconsistency)."
     elif risk_score >= 35:
         verdict = "SUSPICIOUS"
-        summary = "Some frames show manipulation indicators. Treat this video with caution."
+        summary = "Some frames or temporal transitions show manipulation anomalies. Exercise caution."
     else:
         verdict = "SAFE"
-        summary = "Video frames appear consistent with authentic content."
+        summary = "Video frames and temporal motion appear consistent with authentic recorded media."
 
     return {
         "risk_score": risk_score,
@@ -160,18 +219,18 @@ def _fallback(video_bytes: bytes, filename: str) -> dict:
     filename_lower = filename.lower()
     filename_risk = 0.0
     if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"]):
-        filename_risk = 0.95
+        filename_risk = 0.85
 
     evidence = [
         EvidenceItem(
             label="File Size",
             value=f"{size_mb:.1f} MB",
-            risk_contribution=0.2,
+            risk_contribution=0.20,
             severity="low",
         ),
         EvidenceItem(
             label="OpenCV Unavailable",
-            value="Install opencv-python for full frame analysis",
+            value="Install opencv-python for full frame and temporal analysis",
             risk_contribution=0.0,
             severity="low",
         ),
@@ -185,14 +244,14 @@ def _fallback(video_bytes: bytes, filename: str) -> dict:
             severity="high"
         ))
 
-    risks = [0.2]
+    risks = [0.20]
     if filename_risk > 0:
         risks.append(filename_risk)
 
     max_risk = max(risks)
-    active_risks = [r for r in risks if r > 0.15]
+    active_risks = [r for r in risks if r > 0.20]
     if len(active_risks) > 1:
-        overall_risk = min(max_risk + 0.12 * (len(active_risks) - 1), 1.0)
+        overall_risk = min(max_risk + 0.10 * (len(active_risks) - 1), 1.0)
     else:
         overall_risk = max_risk
 
@@ -239,3 +298,4 @@ def _get_recommendations(verdict: str) -> List[str]:
             "Contact Deepware Scanner or Sensity AI for professional analysis.",
             "Preserve original file as evidence before reporting.",
         ]
+
