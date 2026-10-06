@@ -9,12 +9,14 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .filter-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .filter-select {
@@ -27,9 +29,82 @@
   font-size: 0.875rem;
   cursor: pointer;
   outline: none;
+  transition: border-color 0.2s ease;
 }
 
 .filter-select:focus {
+  border-color: var(--cyan);
+}
+
+/* Database Connection Status Pill */
+.db-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.db-status-pill.connected {
+  background: rgba(0, 255, 136, 0.12);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  color: var(--green);
+}
+
+.db-status-pill.disconnected {
+  background: rgba(255, 214, 0, 0.12);
+  border: 1px solid rgba(255, 214, 0, 0.3);
+  color: var(--yellow);
+}
+
+.db-status-pill.checking {
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  color: var(--cyan);
+}
+
+.action-buttons-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.btn-danger-outline {
+  background: transparent;
+  border: 1px solid rgba(255, 32, 82, 0.4);
+  color: var(--red);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-danger-outline:hover {
+  background: rgba(255, 32, 82, 0.15);
+  border-color: var(--red);
+}
+
+.btn-secondary-icon {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--cyan);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary-icon:hover {
+  background: var(--cyan-glow);
   border-color: var(--cyan);
 }
 
@@ -68,6 +143,21 @@
 /* Table */
 .table-container {
   overflow-x: auto;
+}
+
+.history-row-clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.history-row-clickable:hover {
+  background: rgba(0, 240, 255, 0.04) !important;
+}
+
+.row-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .table-loading,
@@ -125,6 +215,98 @@
   font-size: 0.75rem;
 }
 
+/* Modal Inspection Overlay */
+.scan-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.scan-modal-card {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-xl);
+  background: rgba(10, 18, 36, 0.95);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+}
+
+.scan-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  background: rgba(10, 18, 36, 0.98);
+  z-index: 10;
+}
+
+.modal-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modal-title-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+}
+
+.modal-title-text {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.scan-modal-close {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.scan-modal-close:hover {
+  background: rgba(255, 32, 82, 0.15);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.scan-modal-body {
+  padding: var(--space-6);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @media (max-width: 640px) {
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .history-controls { flex-direction: column; align-items: stretch; }
+  .filter-row { justify-content: space-between; }
+  .action-buttons-row { justify-content: flex-end; }
 }

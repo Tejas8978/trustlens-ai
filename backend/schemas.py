@@ -22,7 +22,6 @@ class AnalysisResult(BaseModel):
     visual_artifact: Optional[str] = None
 
 
-
 class ScanLogOut(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -33,3 +32,16 @@ class ScanLogOut(BaseModel):
     verdict: str
     summary: str
     created_at: datetime
+
+
+class ScanDetailOut(ScanLogOut):
+    evidence: List[EvidenceItem] = []
+    recommendations: List[str] = []
+    ai_builder_prompt: Optional[str] = None
+
+
+class HistoryResponse(BaseModel):
+    items: List[ScanLogOut]
+    total: int
+    skip: int
+    limit: int

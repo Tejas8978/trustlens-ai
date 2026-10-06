@@ -21,7 +21,8 @@ client = TestClient(app)
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    assert response.json()["status"] == "healthy"
+    assert "database" in response.json()
 
 
 def test_root_endpoint():
@@ -137,6 +138,29 @@ def test_image_analyzer_ai_evidence():
     assert "Error Level Analysis (ELA)" in evidence_labels
 
 
+def test_history_invalid_id():
+    response = client.get("/api/history/invalid-nonexistent-id")
+    assert response.status_code == 404
+
+
+def test_auth_quick_demo_login():
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "demo_operative@trustlens.ai", "auth_type": "quick_demo"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "demo_operative@trustlens.ai"
+
+
+def test_password_hashing_and_verification():
+    import database
+    pwd = "super-secret-password-123"
+    hashed = database.hash_password(pwd)
+    assert database.verify_password(pwd, hashed) is True
+    assert database.verify_password("wrong-password", hashed) is False
+
+
 if __name__ == "__main__":
     tests = [
         test_health_check,
@@ -152,6 +176,9 @@ if __name__ == "__main__":
         test_text_analyzer_homoglyph_deobfuscation,
         test_text_analyzer_word_boundaries,
         test_url_analyzer_subdomain_deception_and_entropy,
+        test_history_invalid_id,
+        test_auth_quick_demo_login,
+        test_password_hashing_and_verification,
     ]
     passed = 0
     for t in tests:
@@ -161,9 +188,8 @@ if __name__ == "__main__":
             passed += 1
         except Exception as e:
             print(f"FAIL: {t.__name__} - {e}")
+            raise e
     print(f"\nCompleted: {passed}/{len(tests)} tests passed.")
-    if passed < len(tests):
-        sys.exit(1)
 
 
 

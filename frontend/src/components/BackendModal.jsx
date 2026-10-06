@@ -30,8 +30,9 @@ export default function BackendModal({ isOpen, onClose }) {
     setLatency(result.latency);
 
     if (result.ok) {
+      const dbInfo = result.data?.database ? ` · Database: ${result.data.database.toUpperCase()}` : '';
       setStatus('success');
-      setStatusMsg(`Connected successfully! Server is live and healthy (${result.latency}ms).`);
+      setStatusMsg(`Connected successfully! Server is live and healthy (${result.latency}ms${dbInfo}).`);
     } else if (result.status === 502 || result.status === 503 || result.timeout) {
       setStatus('warning');
       setStatusMsg(

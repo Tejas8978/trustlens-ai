@@ -49,10 +49,23 @@ class LoginAuditItem(BaseModel):
 async def login_endpoint(payload: AuthRequest, request: Request):
     """
     Feeds operative login details directly into MongoDB:
-    Updates operative record in 'users' collection and saves audit log in 'login_logs'.
+    Verifies credentials (or biometric / demo clearance), updates operative record in 'users',
+    and stores an immutable audit log in 'login_logs'.
     """
     if not payload.email.strip():
         raise HTTPException(status_code=400, detail="Operative email is required")
+
+    # Credential verification check
+    auth_check = database.verify_user_credentials(
+        email=payload.email,
+        password=payload.password,
+        auth_type=payload.auth_type or "password",
+    )
+    if not auth_check.get("ok"):
+        raise HTTPException(
+            status_code=401,
+            detail=auth_check.get("error", "Invalid operative clearance credentials"),
+        )
 
     forwarded_for = request.headers.get("x-forwarded-for")
     client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "127.0.0.1")
@@ -70,6 +83,7 @@ async def login_endpoint(payload: AuthRequest, request: Request):
         auth_type=payload.auth_type or "password",
         ip=client_ip,
         user_agent=user_agent,
+        password=payload.password,
     )
 
     return UserResponse(**result)
@@ -78,7 +92,8 @@ async def login_endpoint(payload: AuthRequest, request: Request):
 @router.post("/register", response_model=UserResponse)
 async def register_endpoint(payload: AuthRequest, request: Request):
     """
-    Registers a new operative into MongoDB 'users' and logs initial access into 'login_logs'.
+    Registers a new operative into MongoDB 'users' with secure password hash
+    and logs initial access into 'login_logs'.
     """
     if not payload.email.strip():
         raise HTTPException(status_code=400, detail="Operative email is required")
@@ -101,6 +116,7 @@ async def register_endpoint(payload: AuthRequest, request: Request):
         auth_type="register",
         ip=client_ip,
         user_agent=user_agent,
+        password=payload.password,
     )
 
     return UserResponse(**result)

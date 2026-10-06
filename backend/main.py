@@ -16,6 +16,7 @@ from routers import analyze, history, auth
 async def lifespan(app: FastAPI):
     database.init_db()
     yield
+    database.close_db()
 
 
 app = FastAPI(
@@ -115,6 +116,7 @@ def root():
             "/api/analyze/video",
             "/api/analyze/text",
             "/api/history/",
+            "/api/history/{scan_id}",
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/logs",
@@ -125,4 +127,8 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    db_connected = database.ping_db()
+    return {
+        "status": "healthy",
+        "database": "connected" if db_connected else "disconnected",
+    }
