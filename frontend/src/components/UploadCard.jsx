@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, Image, Volume2, Video, MessageSquare, Mail, Globe, X, FileText, Loader } from 'lucide-react';
+import { Upload, Image, Volume2, Video, MessageSquare, Mail, Globe, X, FileText, Loader, AlertTriangle, RotateCw, Settings } from 'lucide-react';
 import { getApiUrl } from '../api/config';
 import './UploadCard.css';
 
@@ -93,10 +93,12 @@ export default function UploadCard({ onResult, onLoading }) {
         const alive = await wakeUpBackend();
         setWarming(false);
         if (!alive) {
-          setError(
-            'The backend server is unavailable. If deployed on Render free tier, it may have been ' +
-            'shut down. Visit your Render dashboard to restart it, or wait 60s and try again.'
-          );
+          setError({
+            isGateway: true,
+            status: 'Render Cold Start Timeout',
+            message: 'Backend server did not respond within 60s. Render free instances sleep after inactivity, or the configured URL might be incorrect.',
+            targetUrl: API,
+          });
           return;
         }
       }
@@ -124,18 +126,16 @@ export default function UploadCard({ onResult, onLoading }) {
       onResult(payload);
     } catch (err) {
       const status = err.response?.status;
-      if (!status || status === 502 || status === 503 || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
-        if (!API) {
-          setError(
-            'Cannot connect to the local backend server. Please make sure the backend is running ' +
-            'on port 8000 (run start-backend.ps1).'
-          );
-        } else {
-          setError(
-            'Backend returned a gateway error (502/503). The server may be restarting — ' +
-            'wait 30 seconds and try again. Or update the backend URL using the settings cog at the top.'
-          );
-        }
+      if (!status || status === 502 || status === 503 || status === 404 || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
+        const isLocal = !API || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+        setError({
+          isGateway: true,
+          status: status ? `HTTP ${status}` : 'Connection Refused / Network Error',
+          message: isLocal && !API
+            ? 'Cannot connect to local backend on port 8000. Please start your server (run start-backend.ps1).'
+            : 'Backend returned a gateway or network error. If hosted on Render, the server may be waking up (wait 30–50s), or your Render service URL may have changed.',
+          targetUrl: API || 'http://localhost:8000',
+        });
       } else if (status === 413) {
         setError('File is too large. Please upload a smaller file.');
       } else if (status === 422) {
@@ -248,9 +248,39 @@ export default function UploadCard({ onResult, onLoading }) {
         )}
 
         {error && (
-          <div className="upload-error">
-            ⚠ {error}
-          </div>
+          typeof error === 'object' && error.isGateway ? (
+            <div className="upload-error upload-error-gateway">
+              <div className="gateway-error-top">
+                <AlertTriangle size={18} className="gateway-error-icon" />
+                <span>Backend Gateway / Connection Error ({error.status})</span>
+              </div>
+              <p className="gateway-error-desc">{error.message}</p>
+              <div className="gateway-meta-row">
+                <span className="gateway-target-label">Target URL:</span>
+                <code className="gateway-target-code">{error.targetUrl}</code>
+              </div>
+              <div className="gateway-actions-row">
+                <button
+                  type="button"
+                  className="btn btn-secondary gateway-btn"
+                  onClick={() => window.dispatchEvent(new CustomEvent('open_backend_modal'))}
+                >
+                  <Settings size={14} /> Configure Backend URL
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary gateway-btn"
+                  onClick={handleAnalyze}
+                >
+                  <RotateCw size={14} /> Retry Analysis
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="upload-error">
+              ⚠ {typeof error === 'string' ? error : (error.message || JSON.stringify(error))}
+            </div>
+          )
         )}
 
         <button

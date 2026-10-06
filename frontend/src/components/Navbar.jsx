@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, Zap, Clock, User, LogOut, Key, Menu, X } from 'lucide-react';
+import { Shield, Zap, Clock, User, LogOut, Key, Menu, X, Settings } from 'lucide-react';
+import BackendModal from './BackendModal';
 import './Navbar.css';
 
 export default function Navbar() {
   const loc = useLocation();
   const [user, setUser] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => {
+    const handleOpenSettings = () => setShowSettings(true);
+    window.addEventListener('open_backend_modal', handleOpenSettings);
+    return () => window.removeEventListener('open_backend_modal', handleOpenSettings);
+  }, []);
 
   useEffect(() => {
     const loadUser = () => {
@@ -98,6 +106,16 @@ export default function Navbar() {
             </Link>
           )}
 
+          <button
+            type="button"
+            className="nav-settings-btn"
+            onClick={() => setShowSettings(true)}
+            title="Configure Backend Connection"
+            id="nav-settings-btn"
+          >
+            <Settings size={15} />
+          </button>
+
           <Link to="/analyze" className="btn btn-primary nav-cta" id="nav-scan-btn">
             Start Scan
           </Link>
@@ -134,6 +152,17 @@ export default function Navbar() {
               <Key size={18} className="text-neon-magenta" />
               <span>{user ? 'Operative Terminal' : 'Sign In / Register'}</span>
             </Link>
+            <button
+              type="button"
+              className="mobile-settings-btn"
+              onClick={() => {
+                setShowSettings(true);
+                setMobileMenuOpen(false);
+              }}
+            >
+              <Settings size={18} className="text-neon-cyan" />
+              <span>Backend Connection</span>
+            </button>
           </div>
 
           <div className="mobile-drawer-footer">
@@ -159,6 +188,9 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      {/* Global Backend Gateway Settings Modal */}
+      <BackendModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </nav>
   );
 }
