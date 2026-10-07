@@ -161,6 +161,37 @@ def test_password_hashing_and_verification():
     assert database.verify_password("wrong-password", hashed) is False
 
 
+def test_image_analyzer_normal_camera_photo_is_safe():
+    # Simulated natural camera capture
+    import numpy as np
+    np.random.seed(42)
+    base = np.zeros((400, 500, 3), dtype=np.uint8)
+    for y in range(200):
+        base[y, :, :] = [100, 150, 220]
+    for y in range(200, 400):
+        base[y, :, :] = np.random.randint(50, 120, (500, 3))
+    img = Image.fromarray(base)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=90)
+    result = analyze_image(buf.getvalue(), "IMG_20261007_photo.jpg")
+    assert result["verdict"] == "SAFE"
+    assert result["risk_score"] < 30.0
+
+
+def test_image_analyzer_camera_exif():
+    img = Image.new("RGB", (300, 300), color=(120, 140, 160))
+    exif = img.getexif()
+    exif[271] = "Canon"
+    exif[272] = "EOS R5"
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", exif=exif)
+    result = analyze_image(buf.getvalue(), "canon_eos.jpg")
+    assert result["verdict"] == "SAFE"
+    exif_item = next((e for e in result["evidence"] if "EXIF" in e.label), None)
+    assert exif_item is not None
+    assert "Canon" in exif_item.value
+
+
 if __name__ == "__main__":
     tests = [
         test_health_check,
@@ -168,6 +199,8 @@ if __name__ == "__main__":
         test_image_analyzer_valid,
         test_image_analyzer_corrupted,
         test_image_analyzer_ai_evidence,
+        test_image_analyzer_normal_camera_photo_is_safe,
+        test_image_analyzer_camera_exif,
         test_url_analyzer_phishing,
         test_url_analyzer_safe,
         test_text_analyzer_sms_scam,
@@ -190,6 +223,7 @@ if __name__ == "__main__":
             print(f"FAIL: {t.__name__} - {e}")
             raise e
     print(f"\nCompleted: {passed}/{len(tests)} tests passed.")
+
 
 
 

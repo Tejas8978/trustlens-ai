@@ -6,8 +6,22 @@ safe timeouts, native BSON schema, and secure credential handling.
 import os
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-import bcrypt
-import certifi
+import hashlib
+import hmac
+import secrets
+
+try:
+    import bcrypt
+    _BCRYPT_AVAILABLE = True
+except ImportError:
+    bcrypt = None  # type: ignore
+    _BCRYPT_AVAILABLE = False
+
+try:
+    import certifi
+except ImportError:
+    certifi = None  # type: ignore
+
 from bson import ObjectId
 from pymongo import MongoClient, DESCENDING, ReturnDocument
 from dotenv import load_dotenv
@@ -107,14 +121,28 @@ def init_db():
 # ---------------------------------------------------------------------------
 
 def hash_password(password: str) -> str:
-    """Hashes plain-text password using bcrypt with salt."""
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    """Hashes plain-text password using bcrypt (or standard PBKDF2 if bcrypt is compiling/unavailable)."""
+    if _BCRYPT_AVAILABLE and bcrypt is not None:
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000).hex()
+    return f"pbkdf2:{salt}:{key}"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies plain-text password against bcrypt hash."""
+    """Verifies plain-text password against bcrypt or PBKDF2 hash."""
     try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+        if hashed_password.startswith("pbkdf2:"):
+            parts = hashed_password.split(":")
+            if len(parts) != 3:
+                return False
+            _, salt, key = parts
+            computed = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt.encode("utf-8"), 100000).hex()
+            return hmac.compare_digest(key, computed)
+
+        if _BCRYPT_AVAILABLE and bcrypt is not None:
+            return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+        return False
     except Exception:
         return False
 
