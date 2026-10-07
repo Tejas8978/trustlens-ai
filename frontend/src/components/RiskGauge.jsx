@@ -18,7 +18,7 @@ function describeArc(cx, cy, r, startDeg, endDeg) {
   return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
 }
 
-export default function RiskGauge({ score = 0, verdict = 'SAFE' }) {
+export default function RiskGauge({ score = 0, verdict = 'SAFE', typeLabel = 'RISK SCORE' }) {
   const [displayScore, setDisplayScore] = useState(0);
   const animRef = useRef(null);
   const meta = VERDICT_META[verdict] || VERDICT_META.SAFE;
@@ -156,7 +156,7 @@ export default function RiskGauge({ score = 0, verdict = 'SAFE' }) {
           fill="rgba(232,244,255,0.45)"
           letterSpacing="2"
         >
-          RISK SCORE
+          {typeLabel}
         </text>
 
         {/* Zone labels */}

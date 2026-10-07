@@ -105,7 +105,9 @@ export default function ResultPanel({ result }) {
         </div>
         <div className="verdict-banner-score">
           <span className="vb-score-num">{result.risk_score}%</span>
-          <span className="vb-score-label">RISK</span>
+          <span className="vb-score-label">
+            {['image', 'audio', 'video'].includes(result.scan_type) ? 'AI PROBABILITY' : 'RISK'}
+          </span>
         </div>
       </div>
 
@@ -151,7 +153,11 @@ export default function ResultPanel({ result }) {
           <p className="result-summary">{result.summary}</p>
         </div>
         <div className="result-gauge">
-          <RiskGauge score={result.risk_score} verdict={result.verdict} />
+          <RiskGauge
+            score={result.risk_score}
+            verdict={result.verdict}
+            typeLabel={['image', 'audio', 'video'].includes(result.scan_type) ? 'AI PROBABILITY' : 'RISK SCORE'}
+          />
         </div>
       </div>
 
