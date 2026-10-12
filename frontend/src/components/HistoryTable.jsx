@@ -30,10 +30,38 @@ export default function HistoryTable() {
   const [inspectLoading, setInspectLoading] = useState(false);
   const [inspectError, setInspectError] = useState('');
 
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('trustlens_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleAuthChange = () => {
+      try {
+        const stored = localStorage.getItem('trustlens_user');
+        setCurrentUser(stored ? JSON.parse(stored) : null);
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+    window.addEventListener('authChange', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener('authChange', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, []);
+
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError('');
     const API = getApiUrl();
+    const userEmail = currentUser?.email || '';
+
     try {
       // Check backend & DB status
       try {
@@ -43,7 +71,11 @@ export default function HistoryTable() {
         setDbStatus('disconnected');
       }
 
-      const params = filter ? { scan_type: filter } : {};
+      // Filter by the logged-in user's email so new accounts start completely fresh
+      const params = {
+        ...(filter ? { scan_type: filter } : {}),
+        user_email: userEmail || 'guest',
+      };
       const res = await axios.get(`${API}/api/history/`, { params, timeout: 60000 });
       setLogs(res.data);
     } catch (_err) {
@@ -55,15 +87,18 @@ export default function HistoryTable() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, currentUser]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   async function deleteScan(id, e) {
     if (e) e.stopPropagation();
     const API = getApiUrl();
+    const userEmail = currentUser?.email || '';
     try {
-      await axios.delete(`${API}/api/history/${id}`);
+      await axios.delete(`${API}/api/history/${id}`, {
+        params: { user_email: userEmail }
+      });
       setLogs(prev => prev.filter(l => l.id !== id));
       if (selectedScan && selectedScan.id === id) {
         setSelectedScan(null);
@@ -75,12 +110,18 @@ export default function HistoryTable() {
   }
 
   async function clearAllHistory() {
-    if (!window.confirm('Are you sure you want to purge all forensic scan history from the database?')) {
+    const userEmail = currentUser?.email || '';
+    const confirmMsg = userEmail
+      ? `Are you sure you want to purge all scan history for your account (${userEmail})?`
+      : 'Are you sure you want to purge all guest scan history?';
+    if (!window.confirm(confirmMsg)) {
       return;
     }
     const API = getApiUrl();
     try {
-      await axios.delete(`${API}/api/history/`);
+      await axios.delete(`${API}/api/history/`, {
+        params: { user_email: userEmail }
+      });
       setLogs([]);
       setSelectedScan(null);
     } catch (err) {
@@ -148,6 +189,21 @@ export default function HistoryTable() {
             <Database size={12} />
             <span>MongoDB: {dbStatus.toUpperCase()}</span>
           </div>
+
+          {/* Account Scope Badge */}
+          <div className="account-scope-pill" style={{
+            fontSize: '0.78rem',
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-full)',
+            background: 'rgba(0, 245, 255, 0.08)',
+            border: '1px solid rgba(0, 245, 255, 0.22)',
+            color: 'var(--cyan)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>Account: <strong>{currentUser?.email || 'Guest'}</strong></span>
+          </div>
         </div>
 
         <div className="action-buttons-row">
@@ -203,7 +259,11 @@ export default function HistoryTable() {
         ) : logs.length === 0 ? (
           <div className="table-empty">
             <Clock size={40} style={{ color: 'var(--text-dim)' }} />
-            <p>No scans yet. Analyze something to see results here.</p>
+            <p>
+              {currentUser?.email
+                ? `No scans yet for ${currentUser.email}. Scans you analyze while logged into this account will appear here.`
+                : 'No guest scans yet. Log in to an account to save your scan reports.'}
+            </p>
           </div>
         ) : (
           <table className="data-table">

@@ -216,6 +216,7 @@ def add_history(data: dict) -> str:
 
         raw_recs = data.get("recommendations", [])
         recommendations = [str(r) for r in raw_recs] if isinstance(raw_recs, list) else []
+        user_email = (data.get("user_email") or "").strip().lower()
 
         doc = {
             "scan_type":         data.get("scan_type") or data.get("type", "unknown"),
@@ -226,6 +227,7 @@ def add_history(data: dict) -> str:
             "evidence":          evidence_list,
             "recommendations":   recommendations,
             "ai_builder_prompt": data.get("ai_builder_prompt"),
+            "user_email":        user_email,
             "created_at":        datetime.now(timezone.utc),
         }
 
@@ -240,13 +242,20 @@ def get_history(
     skip: int = 0,
     limit: int = 50,
     scan_type: Optional[str] = None,
+    user_email: Optional[str] = None,
 ) -> list:
-    """Return scan logs, newest first, with optional type filter."""
+    """Return scan logs for a specific user or guest session, newest first."""
     try:
         col = get_collection()
         query: Dict[str, Any] = {}
+        if user_email and user_email.strip():
+            query["user_email"] = user_email.strip().lower()
+        else:
+            query["user_email"] = {"$in": ["", None, "guest"]}
+
         if scan_type:
             query["scan_type"] = scan_type
+
         cursor = (
             col.find(query)
             .sort("created_at", DESCENDING)
@@ -268,6 +277,7 @@ def get_history(
                 "risk_score": doc.get("risk_score", 0.0),
                 "verdict":    doc.get("verdict", "UNKNOWN"),
                 "summary":    doc.get("summary", ""),
+                "user_email": doc.get("user_email", ""),
                 "created_at": dt_val,
             })
         return result
@@ -276,11 +286,19 @@ def get_history(
         return []
 
 
-def get_history_count(scan_type: Optional[str] = None) -> int:
-    """Returns total count of scans for pagination metrics."""
+def get_history_count(
+    scan_type: Optional[str] = None,
+    user_email: Optional[str] = None,
+) -> int:
+    """Returns total count of scans for a specific user."""
     try:
         col = get_collection()
         query: Dict[str, Any] = {}
+        if user_email and user_email.strip():
+            query["user_email"] = user_email.strip().lower()
+        else:
+            query["user_email"] = {"$in": ["", None, "guest"]}
+
         if scan_type:
             query["scan_type"] = scan_type
         return col.count_documents(query)
@@ -311,6 +329,7 @@ def get_scan(scan_id: str) -> Optional[dict]:
             "evidence":          doc.get("evidence", []),
             "recommendations":   doc.get("recommendations", []),
             "ai_builder_prompt": doc.get("ai_builder_prompt"),
+            "user_email":        doc.get("user_email", ""),
             "created_at":        dt_val,
         }
     except Exception as e:
@@ -318,24 +337,32 @@ def get_scan(scan_id: str) -> Optional[dict]:
         return None
 
 
-def delete_one(scan_id: str) -> bool:
-    """Delete a single scan by string ObjectId. Returns True if deleted."""
+def delete_one(scan_id: str, user_email: Optional[str] = None) -> bool:
+    """Delete a single scan by string ObjectId, scoped to user if provided."""
     if not ObjectId.is_valid(scan_id):
         return False
     try:
         col = get_collection()
-        result = col.delete_one({"_id": ObjectId(scan_id)})
+        query: Dict[str, Any] = {"_id": ObjectId(scan_id)}
+        if user_email and user_email.strip():
+            query["user_email"] = user_email.strip().lower()
+        result = col.delete_one(query)
         return result.deleted_count > 0
     except Exception as e:
         print(f"[DB] Error deleting scan {scan_id}: {e}")
         return False
 
 
-def delete_all() -> bool:
-    """Clear all scans from the collection."""
+def delete_all(user_email: Optional[str] = None) -> bool:
+    """Clear all scans for the given user (or guest scans if unspecified)."""
     try:
         col = get_collection()
-        col.delete_many({})
+        query: Dict[str, Any] = {}
+        if user_email and user_email.strip():
+            query["user_email"] = user_email.strip().lower()
+        else:
+            query["user_email"] = {"$in": ["", None, "guest"]}
+        col.delete_many(query)
         return True
     except Exception as e:
         print(f"[DB] Error clearing history: {e}")

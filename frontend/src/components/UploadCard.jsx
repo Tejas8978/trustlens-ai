@@ -142,6 +142,16 @@ export default function UploadCard({ onResult, onLoading }) {
       }
     }
 
+    // Retrieve logged-in user email if present to associate scan with this specific account
+    let userEmail = '';
+    try {
+      const stored = localStorage.getItem('trustlens_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        userEmail = parsed.email || '';
+      }
+    } catch {}
+
     onLoading(true);
     try {
       let res;
@@ -149,10 +159,12 @@ export default function UploadCard({ onResult, onLoading }) {
         const form = new FormData();
         form.append('text', text);
         form.append('mode', activeTab);
+        if (userEmail) form.append('user_email', userEmail);
         res = await axios.post(`${API}/api/analyze/text`, form, { timeout: 60000 });
       } else {
         const form = new FormData();
         form.append('file', file);
+        if (userEmail) form.append('user_email', userEmail);
         // Do NOT set Content-Type manually — axios must set it with the correct boundary
         res = await axios.post(`${API}${tab.endpoint}`, form, { timeout: 60000 });
       }

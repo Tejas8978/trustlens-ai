@@ -49,11 +49,12 @@ AI_PROMPTS = {
 }
 
 
-def _save_scan(result: dict, scan_type: str, filename: Optional[str]):
-    """Persist the scan result to MongoDB."""
+def _save_scan(result: dict, scan_type: str, filename: Optional[str], user_email: Optional[str] = None):
+    """Persist the scan result to MongoDB with associated user account."""
     payload = dict(result)
     payload["scan_type"] = scan_type
     payload["filename"] = filename
+    payload["user_email"] = (user_email or "").strip().lower()
     # Serialize evidence list for storage
     payload["details"] = json.dumps([
         (e.model_dump() if hasattr(e, "model_dump") else (e.dict() if hasattr(e, "dict") else e))
@@ -65,6 +66,7 @@ def _save_scan(result: dict, scan_type: str, filename: Optional[str]):
 @router.post("/image", response_model=AnalysisResult)
 async def analyze_image_endpoint(
     file: UploadFile = File(...),
+    user_email: Optional[str] = Form(None),
 ):
     import gc
     content = await file.read()
@@ -76,7 +78,8 @@ async def analyze_image_endpoint(
         result["scan_type"] = "image"
         result["filename"] = file.filename
         result["ai_builder_prompt"] = AI_PROMPTS["image"]
-        _save_scan(result, "image", file.filename)
+        result["user_email"] = user_email
+        _save_scan(result, "image", file.filename, user_email)
         return AnalysisResult(**result)
     finally:
         del content
@@ -86,6 +89,7 @@ async def analyze_image_endpoint(
 @router.post("/audio", response_model=AnalysisResult)
 async def analyze_audio_endpoint(
     file: UploadFile = File(...),
+    user_email: Optional[str] = Form(None),
 ):
     import gc
     content = await file.read()
@@ -97,7 +101,8 @@ async def analyze_audio_endpoint(
         result["scan_type"] = "audio"
         result["filename"] = file.filename
         result["ai_builder_prompt"] = AI_PROMPTS["audio"]
-        _save_scan(result, "audio", file.filename)
+        result["user_email"] = user_email
+        _save_scan(result, "audio", file.filename, user_email)
         return AnalysisResult(**result)
     finally:
         del content
@@ -107,6 +112,7 @@ async def analyze_audio_endpoint(
 @router.post("/video", response_model=AnalysisResult)
 async def analyze_video_endpoint(
     file: UploadFile = File(...),
+    user_email: Optional[str] = Form(None),
 ):
     import gc
     import os
@@ -130,7 +136,8 @@ async def analyze_video_endpoint(
         result["scan_type"] = "video"
         result["filename"] = file.filename
         result["ai_builder_prompt"] = AI_PROMPTS["video"]
-        _save_scan(result, "video", file.filename)
+        result["user_email"] = user_email
+        _save_scan(result, "video", file.filename, user_email)
         return AnalysisResult(**result)
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -145,6 +152,7 @@ async def analyze_video_endpoint(
 async def analyze_text_endpoint(
     text: str = Form(...),
     mode: str = Form("sms"),   # sms | email | url
+    user_email: Optional[str] = Form(None),
 ):
     if not text.strip():
         raise HTTPException(status_code=400, detail="Input text cannot be empty")
@@ -155,5 +163,6 @@ async def analyze_text_endpoint(
     result["scan_type"] = mode
     result["filename"] = None
     result["ai_builder_prompt"] = AI_PROMPTS[mode]
-    _save_scan(result, mode, None)
+    result["user_email"] = user_email
+    _save_scan(result, mode, None, user_email)
     return AnalysisResult(**result)

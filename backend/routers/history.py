@@ -12,9 +12,10 @@ def get_history(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, le=200),
     scan_type: Optional[str] = Query(None),
+    user_email: Optional[str] = Query(None),
 ):
-    """Retrieve paginated scan logs, optionally filtered by scan_type."""
-    return database.get_history(skip=skip, limit=limit, scan_type=scan_type)
+    """Retrieve paginated scan logs for a specific user, optionally filtered by scan_type."""
+    return database.get_history(skip=skip, limit=limit, scan_type=scan_type, user_email=user_email)
 
 
 @router.get("/{scan_id}", response_model=ScanDetailOut)
@@ -27,16 +28,16 @@ def get_scan_details(scan_id: str):
 
 
 @router.delete("/{scan_id}")
-def delete_scan(scan_id: str):
-    """Delete a single scan record from history."""
-    deleted = database.delete_one(scan_id)
+def delete_scan(scan_id: str, user_email: Optional[str] = Query(None)):
+    """Delete a single scan record from history (scoped to user if specified)."""
+    deleted = database.delete_one(scan_id, user_email=user_email)
     if not deleted:
         raise HTTPException(status_code=404, detail="Scan record not found or could not be deleted")
     return {"ok": True, "deleted": True}
 
 
 @router.delete("/")
-def clear_all_history():
-    """Clear all scan records from MongoDB history."""
-    cleared = database.delete_all()
+def clear_all_history(user_email: Optional[str] = Query(None)):
+    """Clear scan records for a specific user from history."""
+    cleared = database.delete_all(user_email=user_email)
     return {"ok": True, "cleared": cleared}

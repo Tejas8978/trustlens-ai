@@ -20,6 +20,7 @@ class AnalysisResult(BaseModel):
     recommendations: List[str]
     ai_builder_prompt: str
     visual_artifact: Optional[str] = None
+    user_email: Optional[str] = None
 
 
 class ScanLogOut(BaseModel):
@@ -32,6 +33,7 @@ class ScanLogOut(BaseModel):
     verdict: str
     summary: str
     created_at: datetime
+    user_email: Optional[str] = None
 
 
 class ScanDetailOut(ScanLogOut):
