@@ -25,7 +25,13 @@ except ImportError:
 from bson import ObjectId
 from pymongo import MongoClient, DESCENDING, ReturnDocument
 from dotenv import load_dotenv
+from pathlib import Path
 
+# Explicitly search for .env in backend dir and repository root
+_backend_dir = Path(__file__).resolve().parent
+_root_dir = _backend_dir.parent
+load_dotenv(_backend_dir / ".env")
+load_dotenv(_root_dir / ".env")
 load_dotenv()
 
 _raw_uri = (os.getenv("MONGO_URI") or "").strip()
@@ -436,6 +442,7 @@ def record_login(
         log_res = logs_col.insert_one(log_doc)
 
         user_id = str(user_doc["_id"]) if user_doc and "_id" in user_doc else ""
+        print(f"[DB] SUCCESS: Stored user '{email}' in collection 'users' and logged event in 'login_logs'")
         return {
             "id": user_id,
             "log_id": str(log_res.inserted_id),
@@ -449,7 +456,7 @@ def record_login(
             "mongodb_connected": True,
         }
     except Exception as e:
-        print(f"[DB] Error recording login to MongoDB: {e}")
+        print(f"[DB] WARNING: Could not write user '{email}' to MongoDB: {e}")
         return {
             "id": "",
             "log_id": "",

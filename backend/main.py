@@ -3,7 +3,17 @@ TrustLens AI — FastAPI Backend Entry Point
 """
 import logging
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Ensure .env is loaded before importing database or routers
+_backend_dir = Path(__file__).resolve().parent
+_root_dir = _backend_dir.parent
+load_dotenv(_backend_dir / ".env")
+load_dotenv(_root_dir / ".env")
+load_dotenv()
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
