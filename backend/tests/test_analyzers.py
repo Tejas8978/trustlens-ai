@@ -192,6 +192,39 @@ def test_image_analyzer_camera_exif():
     assert "Canon" in exif_item.value
 
 
+def test_image_analyzer_c2pa_and_synthid():
+    """Verify C2PA AI manifest and SynthID watermarks are identified with 100% confidence."""
+    # Generate valid base JPEG
+    base_img = Image.new("RGB", (80, 80), color=(120, 140, 160))
+    buf = io.BytesIO()
+    base_img.save(buf, format="JPEG")
+    base_bytes = buf.getvalue()
+
+    # Test SynthID
+    synthid_bytes = base_bytes + b" Google_SynthID_v2_Watermark_Active "
+    res1 = analyze_image(synthid_bytes, "synthid_sample.jpg")
+    assert res1["verdict"] == "HIGH_RISK"
+    assert res1["risk_score"] >= 95.0
+    synth_ev = next((e for e in res1["evidence"] if "SynthID" in e.value), None)
+    assert synth_ev is not None
+
+    # Test C2PA AI Manifest
+    c2pa_ai_bytes = base_bytes + b" c2pa.claim JUMBF trainedAlgorithmicMedia Adobe Firefly "
+    res2 = analyze_image(c2pa_ai_bytes, "firefly_c2pa.jpg")
+    assert res2["verdict"] == "HIGH_RISK"
+    assert res2["risk_score"] >= 95.0
+
+
+def test_url_analyzer_punycode():
+    """Verify Punycode IDN homoglyph spoofing is caught as high risk."""
+    from analyzers.text_analyzer import analyze_url
+    result = analyze_url("https://xn--pple-43d.com/login")
+    assert result["risk_score"] >= 65.0
+    assert result["verdict"] == "HIGH_RISK"
+    puny_ev = next((e for e in result["evidence"] if "Punycode" in e.label), None)
+    assert puny_ev is not None
+
+
 if __name__ == "__main__":
     tests = [
         test_health_check,

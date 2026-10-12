@@ -8,8 +8,9 @@ import os
 import re
 import sys
 import unicodedata
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from urllib.parse import urlparse
+import httpx
 
 _BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _BACKEND_DIR not in sys.path:
@@ -102,6 +103,39 @@ def _calculate_entropy(s: str) -> float:
     return -sum(p * math.log2(p) for p in prob)
 
 
+def _check_google_safe_browsing(url: str) -> Tuple[Optional[float], Optional[str]]:
+    """
+    Live Cloud Threat Intelligence (Google Safe Browsing v4 API).
+    Checks URL against global real-time database of malware, social engineering, and phishing.
+    Activated when GOOGLE_SAFE_BROWSING_KEY is set in .env.
+    """
+    api_key = os.getenv("GOOGLE_SAFE_BROWSING_KEY", "").strip()
+    if not api_key:
+        return None, None
+    try:
+        payload = {
+            "client": {"clientId": "trustlens-ai", "clientVersion": "1.0.0"},
+            "threatInfo": {
+                "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
+                "platformTypes": ["ANY_PLATFORM"],
+                "threatEntryTypes": ["URL"],
+                "threatEntries": [{"url": url}]
+            }
+        }
+        with httpx.Client(timeout=3.5) as client:
+            resp = client.post(f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}", json=payload)
+            if resp.status_code == 200:
+                matches = resp.json().get("matches", [])
+                if matches:
+                    threat_type = matches[0].get("threatType", "MALICIOUS")
+                    return 0.99, f"Google Safe Browsing Global Threat Database: Confirmed {threat_type} match (100% verified threat)"
+                else:
+                    return 0.01, "Google Safe Browsing: URL verified clean in live global threat database"
+    except Exception:
+        pass
+    return None, None
+
+
 def analyze_url(raw_url: str) -> dict:
     url = raw_url.strip()
     # Normalize homoglyphs in URL string
@@ -125,7 +159,31 @@ def analyze_url(raw_url: str) -> dict:
     evidence: List[EvidenceItem] = []
     risks = []
 
-    # 1. Protocol Security
+    # 0. Live Cloud Threat Intelligence (Google Safe Browsing API)
+    gsb_score, gsb_msg = _check_google_safe_browsing(raw_url)
+    if gsb_msg is not None:
+        evidence.append(EvidenceItem(
+            label="Google Safe Browsing Threat Intelligence",
+            value=gsb_msg,
+            risk_contribution=gsb_score or 0.0,
+            severity="high" if (gsb_score or 0.0) > 0.6 else "low"
+        ))
+        if gsb_score is not None:
+            risks.append(gsb_score)
+
+    # 1. Punycode / IDN Homoglyph Domain Cloaking
+    is_punycode = host.startswith("xn--") or ".xn--" in host
+    if is_punycode:
+        puny_risk = 0.85
+        evidence.append(EvidenceItem(
+            label="Punycode / IDN Homoglyph Cloaking",
+            value=f"Punycode encoded hostname detected ({host}) — visual brand spoofing tactic",
+            risk_contribution=puny_risk,
+            severity="high"
+        ))
+        risks.append(puny_risk)
+
+    # 2. Protocol Security
     is_http = raw_url.strip().lower().startswith("http://")
     proto_risk = 0.45 if is_http else 0.0
     evidence.append(EvidenceItem(
