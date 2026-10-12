@@ -24,10 +24,15 @@ Thumbs.db
 venv/
 env/
 
-# Environment files
+# Environment files & Secrets
 .env
-.env.local
-.env.*.local
+*.env
+.env.*
+.env*.local
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # IDE/Editor files
 .vscode/

@@ -1,0 +1,6 @@
+# Ignore all local environment configurations and secrets
+.env
+*.env
+.env.*
+.env*.local
+!.env.example
