@@ -2,18 +2,22 @@
 Write-Host "Starting TrustLens AI Backend..." -ForegroundColor Cyan
 Set-Location "$PSScriptRoot\backend"
 
-$PythonPath = "C:\Users\tejas\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe"
-if (-not (Test-Path $PythonPath)) {
-    $PythonPath = "python"
-    # Check if python command points to Microsoft's redirect stub
-    $test = & python --version 2>&1
-    if ($test -match "Python was not found" -or $test -match "install from the Microsoft Store") {
-        # Search for the actual Microsoft Store Python installation dynamically
-        $StorePython = Get-ChildItem -Path "$env:USERPROFILE\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.*" -Filter "python.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-        if ($StorePython) {
-            $PythonPath = $StorePython
-        } else {
-            Write-Host "WARNING: Microsoft Store Python not found. Trying default 'python' command anyway." -ForegroundColor Yellow
+$PythonPath = "python3.13"
+$pyCmd = Get-Command $PythonPath -ErrorAction SilentlyContinue
+if (-not $pyCmd) {
+    $PythonPath = "C:\Users\tejas\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe"
+    if (-not (Test-Path $PythonPath)) {
+        $PythonPath = "python"
+        # Check if python command points to Microsoft's redirect stub
+        $test = & python --version 2>&1
+        if ($test -match "Python was not found" -or $test -match "install from the Microsoft Store") {
+            # Search for the actual Microsoft Store Python installation dynamically
+            $StorePython = Get-ChildItem -Path "$env:USERPROFILE\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.*" -Filter "python.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+            if ($StorePython) {
+                $PythonPath = $StorePython
+            } else {
+                Write-Host "WARNING: Microsoft Store Python not found. Trying default 'python' command anyway." -ForegroundColor Yellow
+            }
         }
     }
 }

@@ -637,67 +637,102 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             severity="high" if text_risk > 0.6 else "medium" if text_risk > 0.3 else "low",
         ))
 
-        # 11. Filename contextual hint
-        filename_lower = filename.lower()
-        filename_flag = any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "manipulated", "spoof", "phish"])
-        if filename_flag:
-            evidence.append(EvidenceItem(
-                label="Filename Indicator",
-                value=f"Filename '{filename}' indicates manipulated content",
-                risk_contribution=0.80,
-                severity="high"
-            ))
+        # --- Calibrated Multi-Signal Continuous Bayesian Fusion ---
+        # Definitive provenance/watermark indicators
+        has_definitive_ai_marker = meta_risk >= 0.85 or text_risk >= 0.80 or (api_score is not None and api_score >= 0.80)
+        is_camera_hardware_verified = (meta_risk <= 0.05 and "Authentic camera hardware" in meta_msg)
 
-        # Multi-Signal Calibrated Risk Fusion
-        primary_risks = [fft_risk, noise_risk, deep_risk, ela_risk, meta_risk, text_risk]
-        if bio_risk > 0.10:
-            primary_risks.append(bio_risk)
+        # Base signal weights
+        has_face = bio_risk > 0.10
+        weights = {
+            "fft": 0.22,
+            "ela": 0.18,
+            "noise": 0.16,
+            "deep": 0.12,
+            "color": 0.08,
+            "meta": 0.14,
+            "text": 0.10,
+        }
+        if has_face:
+            # Rebalance to include biometric inspection for portrait photos
+            weights["bio"] = 0.20
+            weights["fft"] = 0.18
+            weights["ela"] = 0.15
+            weights["noise"] = 0.13
+            weights["deep"] = 0.10
+            weights["color"] = 0.06
+            weights["meta"] = 0.10
+            weights["text"] = 0.08
+
+        total_weight = sum(weights.values())
+        weighted_sum = (
+            fft_risk * weights["fft"]
+            + ela_risk * weights["ela"]
+            + noise_risk * weights["noise"]
+            + deep_risk * weights["deep"]
+            + color_risk * weights["color"]
+            + meta_risk * weights["meta"]
+            + text_risk * weights["text"]
+            + (bio_risk * weights.get("bio", 0.0) if has_face else 0.0)
+        ) / total_weight
+
+        forensic_signals = [fft_risk, ela_risk, noise_risk, deep_risk]
+        if has_face:
+            forensic_signals.append(bio_risk)
         if api_score is not None:
-            primary_risks.append(api_score)
-        if filename_flag:
-            primary_risks.append(0.80)
+            forensic_signals.append(api_score)
 
-        has_definitive_ai_marker = meta_risk >= 0.80 or text_risk >= 0.75 or (api_score is not None and api_score >= 0.70)
-        has_high_forensic_anomaly = fft_risk >= 0.75 or bio_risk >= 0.75 or ela_risk >= 0.75 or noise_risk >= 0.75
-
-        # Check if camera EXIF hardware is verified
-        is_camera_hardware_verified = (meta_risk <= 0.02 and "Authentic camera hardware" in meta_msg)
+        high_anomaly_signals = [s for s in forensic_signals if s >= 0.55]
+        moderate_signals = [s for s in forensic_signals if s >= 0.35]
 
         if has_definitive_ai_marker:
-            # Totally AI generated image: confirm 80% to 85%+ AI
-            overall_risk = max(meta_risk, text_risk, api_score or 0.0)
-            overall_risk = max(overall_risk, 0.80)
-        elif filename_flag:
-            overall_risk = 0.80
-        elif has_high_forensic_anomaly:
-            high_signals = [s for s in primary_risks if s >= 0.70]
-            if len(high_signals) >= 2:
-                overall_risk = 0.85
-            else:
-                overall_risk = 0.80
-        elif any(s >= 0.35 for s in primary_risks):
-            overall_risk = 0.45
+            # Definitive AI generator signatures/metadata found in binary/EXIF
+            base_prob = max(meta_risk, text_risk, api_score or 0.0)
+            overall_prob = min(0.96, max(0.78, base_prob + 0.08 * len(moderate_signals)))
+        elif len(high_anomaly_signals) >= 2:
+            # Multi-vector corroborated forensic anomalies (e.g. FFT grid + ELA disparity)
+            corroboration_boost = 0.12 * (len(high_anomaly_signals) - 1)
+            overall_prob = min(0.92, max(0.68, weighted_sum + corroboration_boost))
+        elif len(high_anomaly_signals) == 1:
+            # Single isolated anomaly — bounded to suspicious zone to prevent false alarms from natural high frequencies
+            overall_prob = min(0.58, max(0.36, weighted_sum * 1.25))
+        elif len(moderate_signals) >= 2:
+            # Multiple subtle texture/compression irregularities
+            overall_prob = min(0.48, max(0.34, weighted_sum * 1.15))
         else:
-            # Real non-AI image: 2% (with camera EXIF) or 5% (natural camera capture)
+            # Consistent natural optical capture
             if is_camera_hardware_verified:
-                overall_risk = 0.02  # Exactly 2.0% for camera with verified EXIF hardware
+                overall_prob = max(0.02, min(0.12, weighted_sum * 0.4))
             else:
-                overall_risk = 0.05  # Exactly 5.0% for natural camera capture
+                overall_prob = max(0.04, min(0.24, weighted_sum * 0.7))
 
-        risk_score = round(min(overall_risk * 100, 100), 1)
+        risk_score = round(min(max(overall_prob * 100.0, 1.0), 99.0), 1)
 
-        if risk_score >= 70:
+        # Standardized 3-tier calibrated cutoffs
+        if risk_score >= 65.0:
             verdict = "HIGH_RISK"
-            summary = f"Confirmed AI-Generated image ({risk_score:.0f}% AI probability). Strong synthetic generator signatures detected."
-        elif risk_score >= 35:
+            summary = (
+                f"High-confidence AI generation or deepfake manipulation detected ({risk_score:.1f}% risk). "
+                f"Multiple corroborated anomalies across frequency spectrum and structural noise patterns."
+            )
+        elif risk_score >= 33.0:
             verdict = "SUSPICIOUS"
-            summary = "Anomalies detected across frequency or texture characteristics. Treat with caution."
+            summary = (
+                f"Suspicious inconsistencies detected ({risk_score:.1f}% risk). "
+                f"Localized compression disparities or spectral anomalies found; secondary verification advised."
+            )
         else:
             verdict = "SAFE"
-            if risk_score <= 2.0:
-                summary = "Authentic camera hardware verified (2% AI probability). Optical sensor and EXIF metadata confirm physical camera capture."
+            if is_camera_hardware_verified:
+                summary = (
+                    f"Authentic camera capture verified ({risk_score:.1f}% risk). "
+                    f"Physical optical sensor noise profile and EXIF hardware tags match natural capture."
+                )
             else:
-                summary = "Authentic Optical Capture (5% AI probability). Natural sensor noise and lighting consistent with physical camera."
+                summary = (
+                    f"Content appears authentic ({risk_score:.1f}% risk). "
+                    f"No significant synthetic generator artifacts or structural manipulation detected."
+                )
 
         recommendations = _get_recommendations(verdict, "image")
 
@@ -708,7 +743,7 @@ def analyze_image(image_bytes: bytes, filename: str) -> dict:
             "evidence": evidence,
             "recommendations": recommendations,
             "risk_level": verdict,
-            "confidence": risk_score / 100.0,
+            "confidence": round(risk_score / 100.0, 3),
             "visual_artifact": ela_visual_data,
         }
     except Exception as e:

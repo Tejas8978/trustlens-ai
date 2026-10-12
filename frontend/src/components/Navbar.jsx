@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, Zap, Clock, User, LogOut, Key, Menu, X, Settings } from 'lucide-react';
+import { Shield, Zap, Clock, User, LogOut, Key, Menu, X, Settings, Download } from 'lucide-react';
 import BackendModal from './BackendModal';
 import './Navbar.css';
 
@@ -9,6 +9,25 @@ export default function Navbar() {
   const [user, setUser] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
 
   useEffect(() => {
     const handleOpenSettings = () => setShowSettings(true);
@@ -79,6 +98,18 @@ export default function Navbar() {
 
         {/* Desktop Action Buttons */}
         <div className="nav-actions">
+          {installPrompt && (
+            <button
+              type="button"
+              className="nav-settings-btn"
+              onClick={handleInstallClick}
+              title="Install TrustLens AI App"
+              id="nav-install-btn"
+            >
+              <Download size={15} />
+            </button>
+          )}
+
           <button
             type="button"
             className="nav-settings-btn"
@@ -164,6 +195,19 @@ export default function Navbar() {
               <Settings size={18} className="text-neon-cyan" />
               <span>Backend Connection</span>
             </button>
+            {installPrompt && (
+              <button
+                type="button"
+                className="mobile-settings-btn"
+                onClick={() => {
+                  handleInstallClick();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <Download size={18} className="text-neon-cyan" />
+                <span>Install Application</span>
+              </button>
+            )}
           </div>
 
           <div className="mobile-drawer-footer">

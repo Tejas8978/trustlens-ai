@@ -37,6 +37,17 @@ SHORTENERS = {
     "is.gd", "rb.gy", "rebrand.ly", "buff.ly", "shorturl.at", "tiny.cc"
 }
 
+# Verified authoritative domains to prevent false positives on legitimate logins/services
+VERIFIED_LEGITIMATE_DOMAINS = {
+    "google.com", "apple.com", "microsoft.com", "paypal.com", "amazon.com",
+    "chase.com", "wellsfargo.com", "bankofamerica.com", "citibank.com", "hsbc.com",
+    "binance.com", "coinbase.com", "whatsapp.com", "telegram.org", "facebook.com",
+    "instagram.com", "twitter.com", "x.com", "linkedin.com", "github.com",
+    "netflix.com", "spotify.com", "fedex.com", "ups.com", "usps.com", "dhl.com",
+    "cloudflare.com", "vercel.app", "render.com", "steamcommunity.com", "steampowered.com",
+    "gitlab.com", "adobe.com", "dropbox.com", "salesforce.com", "slack.com", "zoom.us"
+}
+
 # High-value brands targeted for impersonation
 TARGETED_BRANDS = [
     "paypal", "apple", "google", "microsoft", "netflix", "amazon",
@@ -181,12 +192,13 @@ def analyze_url(raw_url: str) -> dict:
     subdomain_deception = []
     host_parts = host.split(".")
     registered_domain = ".".join(host_parts[-2:]) if len(host_parts) >= 2 else host
+    is_verified_authority = (registered_domain in VERIFIED_LEGITIMATE_DOMAINS and not is_http and not is_ip)
 
     for brand in TARGETED_BRANDS:
         if brand in host:
             # Check if brand is legitimately in the registered domain
             legitimate_domains = (f"{brand}.com", f"{brand}.org", f"{brand}.net", f"{brand}.co", f"{brand}.io")
-            if registered_domain not in legitimate_domains:
+            if registered_domain not in legitimate_domains and not is_verified_authority:
                 impersonated.append(brand)
                 # Check if brand was deliberately positioned in subdomain prefix
                 if len(host_parts) > 2 and any(brand in p for p in host_parts[:-2]):
@@ -197,7 +209,7 @@ def analyze_url(raw_url: str) -> dict:
     if subdomain_deception:
         brand_msg += f" (deceptively embedded in subdomain prefix: {', '.join(subdomain_deception)})"
     if not impersonated:
-        brand_msg = "No obvious brand name spoofing in domain"
+        brand_msg = f"Verified authentic domain ({registered_domain})" if is_verified_authority else "No obvious brand name spoofing in domain"
 
     evidence.append(EvidenceItem(
         label="Brand Impersonation & Typosquatting",
@@ -214,10 +226,18 @@ def analyze_url(raw_url: str) -> dict:
         "credential", "session", "oauth", "confirm", "passcode"
     ]
     found_cues = [c for c in harvesting_cues if c in path or c in query or c in host]
-    path_risk = min(0.35 * len(found_cues), 0.90) if found_cues else 0.0
+    
+    # If this is a verified authentic domain (e.g. accounts.google.com), auth/login cues are expected and legitimate
+    if is_verified_authority:
+        path_risk = 0.0
+        path_msg = f"Standard authentication endpoints on verified authority ({', '.join(found_cues)})" if found_cues else "Clean standard URL path"
+    else:
+        path_risk = min(0.35 * len(found_cues), 0.90) if found_cues else 0.0
+        path_msg = f"Sensitive account keywords in URL: {', '.join(found_cues)}" if found_cues else "No credential-harvesting triggers in path"
+
     evidence.append(EvidenceItem(
         label="Credential Harvesting Indicators",
-        value=f"Sensitive account keywords in URL: {', '.join(found_cues)}" if found_cues else "No credential-harvesting triggers in path",
+        value=path_msg,
         risk_contribution=path_risk,
         severity="high" if path_risk > 0.5 else "medium" if path_risk > 0.2 else "low"
     ))
@@ -227,7 +247,7 @@ def analyze_url(raw_url: str) -> dict:
     subdomain_count = max(0, len(host_parts) - 2)
     hyphen_count = host.count("-")
     structure_risk = 0.0
-    if subdomain_count >= 3 or hyphen_count >= 3:
+    if not is_verified_authority and (subdomain_count >= 3 or hyphen_count >= 3):
         structure_risk = min(0.30 + (subdomain_count * 0.1) + (hyphen_count * 0.08), 0.70)
         evidence.append(EvidenceItem(
             label="Domain Obfuscation Structure",
@@ -238,27 +258,33 @@ def analyze_url(raw_url: str) -> dict:
         risks.append(structure_risk)
 
     # Calibrated Risk Synthesis
-    max_risk = max(risks)
-    active_risks = [r for r in risks if r > 0.15]
-    if max_risk >= 0.65:
-        overall_risk = max_risk
-        if len(active_risks) > 1:
-            overall_risk = min(overall_risk + 0.15 * (len(active_risks) - 1), 1.0)
-    else:
-        overall_risk = sum(active_risks) / 2.0
-        overall_risk = min(max(overall_risk, max_risk), 1.0)
-
-    risk_score = round(min(overall_risk * 100, 100), 1)
-
-    if risk_score >= 60:
-        verdict = "HIGH_RISK"
-        summary = "Malicious or fraudulent URL detected. High probability of phishing or credential theft."
-    elif risk_score >= 30:
-        verdict = "SUSPICIOUS"
-        summary = "Suspicious URL characteristics detected. Do not enter passwords or personal data."
-    else:
+    if is_verified_authority:
+        risk_score = 3.0
         verdict = "SAFE"
-        summary = "URL appears safe. No typical phishing or obfuscation patterns detected."
+        summary = f"Verified authentic domain ({registered_domain}). High-trust infrastructure with valid encrypted protocol."
+    else:
+        max_risk = max(risks)
+        active_risks = [r for r in risks if r > 0.15]
+        if max_risk >= 0.65:
+            overall_risk = max_risk
+            if len(active_risks) > 1:
+                overall_risk = min(overall_risk + 0.12 * (len(active_risks) - 1), 1.0)
+        else:
+            overall_risk = sum(active_risks) / 2.0
+            overall_risk = min(max(overall_risk, max_risk), 1.0)
+
+        risk_score = round(min(overall_risk * 100, 100), 1)
+
+        # Standardized 3-tier cutoffs
+        if risk_score >= 65.0:
+            verdict = "HIGH_RISK"
+            summary = "Malicious or fraudulent URL detected. High probability of phishing or credential theft."
+        elif risk_score >= 33.0:
+            verdict = "SUSPICIOUS"
+            summary = "Suspicious URL characteristics detected. Do not enter passwords or personal data."
+        else:
+            verdict = "SAFE"
+            summary = "URL appears safe. No typical phishing or obfuscation patterns detected."
 
     recommendations = [
         "Do NOT enter any personal details, usernames, or passwords on this site." if verdict != "SAFE" else "Always verify SSL padlock and exact domain spelling.",
@@ -490,12 +516,22 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
         ))
 
         # 8. Intent Synergy / Co-occurrence Bonus:
+        # Check for legitimate incoming OTP / verification codes
+        is_otp_receipt = bool(re.search(r"\b(verification code|security code|one-time password|otp|auth code|login code|passcode)\b", cleaned_text, re.I))
+        has_suspicious_links = url_risk >= 0.35
+        is_clean_otp = is_otp_receipt and not has_suspicious_links and threat_risk == 0 and lure_risk == 0
+        if is_clean_otp:
+            # Legitimate OTP notifications naturally mention expiration times ("valid for 10 minutes")
+            urgency_risk = min(urgency_risk, 0.05)
+            brand_risk = min(brand_risk, 0.05)
+            req_risk = min(req_risk, 0.05)
+
         # Phishing relies on synergy: [Pressure (Urgency/Threat/Lure)] + [Target/Action (Request/URL/Brand)]
         has_pressure = (urgency_risk > 0.2 or threat_risk > 0.2 or lure_risk > 0.2)
         has_action = (req_risk > 0.2 or url_risk > 0.3)
         has_target = (brand_risk > 0.2)
         synergy_boost = 0.0
-        if has_pressure and has_action:
+        if not is_clean_otp and has_pressure and has_action:
             synergy_boost += 0.20
             if has_target:
                 synergy_boost += 0.15
@@ -514,28 +550,34 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
         max_risk = max(risks)
         active_risks = [r for r in risks if r > 0.15]
 
-        if max_risk >= 0.65 or synergy_boost >= 0.30:
+        if is_clean_otp:
+            overall_risk = 0.04
+        elif max_risk >= 0.65 or synergy_boost >= 0.30:
             overall_risk = max(max_risk, 0.70)
             if len(active_risks) > 1:
-                overall_risk = min(overall_risk + 0.15 * (len(active_risks) - 1), 1.0)
+                overall_risk = min(overall_risk + 0.12 * (len(active_risks) - 1), 1.0)
         else:
             overall_risk = sum(active_risks) / 2.0
             overall_risk = min(max(overall_risk, max_risk), 1.0)
 
         risk_score = round(min(overall_risk * 100, 100), 1)
 
-        if risk_score >= 60:
+        # Standardized 3-tier cutoffs
+        if risk_score >= 65.0:
             verdict = "HIGH_RISK"
             summary = (
                 "This message exhibits multiple high-confidence scam indicators. "
                 "It is very likely a phishing attempt or fraud."
             )
-        elif risk_score >= 30:
+        elif risk_score >= 33.0:
             verdict = "SUSPICIOUS"
             summary = "Several red flags detected. Treat this message with significant caution."
         else:
             verdict = "SAFE"
-            summary = "No major scam indicators found. Message appears legitimate."
+            if is_clean_otp:
+                summary = "Authentic verification code or transactional notice. No external phishing lures detected."
+            else:
+                summary = "No major scam indicators found. Message appears legitimate."
 
         recommendations = _get_recommendations(verdict, mode)
 

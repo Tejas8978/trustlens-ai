@@ -33,9 +33,6 @@ except ImportError:
 
 def _analyze_with_soundfile(audio_bytes: bytes, filename: str) -> dict:
     """Spectral & prosodic analysis using soundfile and NumPy."""
-    filename_lower = filename.lower()
-    filename_flag = any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "synthetic", "clone", "cloned", "tts", "robotic"])
-
     try:
         y, sr = sf.read(io.BytesIO(audio_bytes))
     except Exception:
@@ -66,14 +63,6 @@ def _analyze_with_soundfile(audio_bytes: bytes, filename: str) -> dict:
     y = y[:max_samples]
 
     evidence: List[EvidenceItem] = []
-
-    if filename_flag:
-        evidence.append(EvidenceItem(
-            label="Filename Indicator",
-            value=f"Filename '{filename}' indicates synthetic/cloned audio",
-            risk_contribution=0.80,
-            severity="high"
-        ))
 
     # 1. Spectral Flatness — AI voices exhibit unnaturally flat or noisy spectra
     n_fft = min(len(y), 2048)
@@ -218,20 +207,24 @@ def _analyze_with_soundfile(audio_bytes: bytes, filename: str) -> dict:
     ))
 
     # Multi-signal fusion
+    # Multi-signal calibrated acoustic fusion
     feature_risks = [flat_risk, zcr_risk, pitch_risk, rolloff_risk, dyn_risk, silence_risk, centroid_risk]
-    if filename_flag:
-        feature_risks.append(0.80)
+    high_anomalies = [r for r in feature_risks if r >= 0.55]
+    moderate_anomalies = [r for r in feature_risks if r >= 0.35]
+    avg_risk = sum(feature_risks) / len(feature_risks)
 
-    max_risk = max(feature_risks)
-    active_risks = [r for r in feature_risks if r > 0.20]
-
-    if max_risk >= 0.65:
-        overall_risk = max_risk
-        if len(active_risks) > 1:
-            overall_risk = min(overall_risk + 0.12 * (len(active_risks) - 1), 1.0)
+    if len(high_anomalies) >= 2:
+        # Multi-vector corroborated synthetic speech anomalies
+        corroboration_boost = 0.10 * (len(high_anomalies) - 1)
+        overall_risk = min(0.92, max(0.68, avg_risk * 1.5 + corroboration_boost))
+    elif len(high_anomalies) == 1:
+        # Single isolated acoustic anomaly — bounded to suspicious zone to prevent false alarms
+        overall_risk = min(0.56, max(0.34, avg_risk * 1.3))
+    elif len(moderate_anomalies) >= 2:
+        overall_risk = min(0.46, max(0.33, avg_risk * 1.2))
     else:
-        overall_risk = sum(active_risks) / 2.0 if active_risks else max_risk
-        overall_risk = min(max(overall_risk, max_risk), 1.0)
+        # Natural human vocal tract dynamics
+        overall_risk = min(0.22, max(0.03, avg_risk * 0.6))
 
     risk_score = round(min(overall_risk * 100, 100), 1)
     return _build_result(risk_score, evidence)
@@ -242,78 +235,51 @@ def _fallback_analysis(audio_bytes: bytes, filename: str) -> dict:
     size = len(audio_bytes)
     evidence: List[EvidenceItem] = []
 
-    filename_lower = filename.lower()
-    filename_risk = 0.0
-    if any(k in filename_lower for k in ["fake", "scam", "fraud", "deepfake", "synthetic", "clone", "cloned", "tts", "robotic"]):
-        filename_risk = 0.85
-        evidence.append(EvidenceItem(
-            label="Filename Flag",
-            value=f"Suspicious filename '{filename}' explicitly suggests AI voice cloning/fraud",
-            risk_contribution=filename_risk,
-            severity="high"
-        ))
-
     size_kb = size / 1024
     if size_kb < 10:
-        size_risk = 0.55
-        size_msg = "Very small audio clip — common for synthetic test samples"
+        size_risk = 0.45
+        size_msg = "Very short audio clip (<10KB) — limited forensic sample"
     elif size_kb > 5000:
-        size_risk = 0.15
-        size_msg = f"Large file ({size_kb:.0f} KB) — typical of natural recording"
+        size_risk = 0.10
+        size_msg = f"Standard full recording ({size_kb:.0f} KB)"
     else:
-        size_risk = 0.20
-        size_msg = f"Standard file size ({size_kb:.0f} KB)"
+        size_risk = 0.15
+        size_msg = f"Standard audio recording ({size_kb:.0f} KB)"
 
     evidence.append(EvidenceItem(
-        label="File Size Analysis",
+        label="File Size & Header Analysis",
         value=size_msg,
         risk_contribution=size_risk,
         severity="medium" if size_risk > 0.4 else "low",
     ))
 
-    if filename.lower().endswith(".mp3"):
-        fmt_risk = 0.20
-        fmt_msg = "MP3 format — lossy compression"
-    else:
-        fmt_risk = 0.15
-        fmt_msg = "WAV/PCM format — uncompressed audio"
+    is_lossy = filename.lower().endswith((".mp3", ".m4a", ".aac", ".ogg"))
+    fmt_risk = 0.15 if is_lossy else 0.08
+    fmt_msg = "Compressed lossy format" if is_lossy else "Uncompressed PCM/WAV format"
 
     evidence.append(EvidenceItem(
-        label="Audio Format",
+        label="Audio Format Container",
         value=fmt_msg,
         risk_contribution=fmt_risk,
         severity="low",
     ))
 
-    risks = [size_risk, fmt_risk]
-    if filename_risk > 0:
-        risks.append(filename_risk)
-
-    max_risk = max(risks)
-    active_risks = [r for r in risks if r > 0.20]
-
-    if max_risk >= 0.65:
-        overall_risk = max_risk
-        if len(active_risks) > 1:
-            overall_risk = min(overall_risk + 0.12 * (len(active_risks) - 1), 1.0)
-    else:
-        overall_risk = sum(active_risks) / 2.0 if active_risks else max_risk
-        overall_risk = min(max(overall_risk, max_risk), 1.0)
-
+    overall_risk = max(size_risk, fmt_risk)
     risk_score = round(min(overall_risk * 100, 100), 1)
     return _build_result(risk_score, evidence)
 
 
 def _build_result(risk_score: float, evidence: List[EvidenceItem]) -> dict:
-    if risk_score >= 65:
+    # Standardized 3-tier cutoffs
+    if risk_score >= 65.0:
         verdict = "HIGH_RISK"
-        summary = "Multiple spectral markers of AI voice synthesis detected. High probability of deepfake audio."
-    elif risk_score >= 35:
+        summary = "Multiple corroborated spectral markers of AI voice synthesis detected. High probability of deepfake audio."
+    elif risk_score >= 33.0:
         verdict = "SUSPICIOUS"
-        summary = "Some acoustic anomalies detected in voice characteristics. Exercise caution."
+        summary = "Acoustic or spectral anomalies detected in voice characteristics. Secondary verification advised."
     else:
         verdict = "SAFE"
-        summary = "Audio characteristics appear consistent with natural human speech."
+        summary = "Acoustic characteristics and prosody appear consistent with natural human speech."
 
     recommendations = _get_recommendations(verdict)
     return {
@@ -323,7 +289,7 @@ def _build_result(risk_score: float, evidence: List[EvidenceItem]) -> dict:
         "evidence": evidence,
         "recommendations": recommendations,
         "risk_level": verdict,
-        "confidence": risk_score / 100.0,
+        "confidence": round(risk_score / 100.0, 3),
     }
 
 

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, Image, Volume2, Video, MessageSquare, Mail, Globe, X, FileText, Loader, AlertTriangle, RotateCw, Settings } from 'lucide-react';
+import { Upload, Image, Volume2, Video, MessageSquare, Mail, Globe, X, FileText, Loader, AlertTriangle, RotateCw, Settings, Sparkles } from 'lucide-react';
 import { getApiUrl } from '../api/config';
 import './UploadCard.css';
 
@@ -44,6 +44,24 @@ const TABS = [
   { id: 'email', label: 'Email', icon: <Mail size={16} />, accept: null, endpoint: '/api/analyze/text' },
 ];
 
+const DEMO_SAMPLES = {
+  image: [
+    { label: 'Synthetic Face Sample', path: '/sample-deepfake.jpg', filename: 'synthetic-portrait-sample.jpg' },
+  ],
+  url: [
+    { label: 'Phishing Credential Harvester', text: 'http://secure-wellsfargo-verify.account-update.xyz/login' },
+    { label: 'Homoglyph Spoofing Domain', text: 'https://pаypal.com/auth-token/check?session=expired' },
+  ],
+  sms: [
+    { label: 'Package Delivery Scam', text: 'USPS Notice: Your parcel #9400111 has an incomplete address and cannot be delivered. Update card details within 12h: http://usps-redelivery-card.top' },
+    { label: 'Urgent Bank Alert Fraud', text: 'URGENT CHASE ALERT: Unauthorized withdrawal of $1,420 detected. If this was NOT you, immediately verify your PIN at https://chase-security-verify.biz/portal' },
+  ],
+  email: [
+    { label: 'Payroll Direct Deposit Phish', text: 'Subject: Urgent: Direct Deposit Payment Update Required\n\nDear Employee,\n\nOur payroll system detected a processing failure for your upcoming paycheck. Please review and update your banking credentials immediately via our secured corporate HR portal: http://hr-employee-portal-secure.info/update\n\nFailure to update within 24 hours will delay payment.\n\nRegards,\nCorporate Payroll Security' },
+    { label: 'Account Suspension Warning', text: 'Subject: Storage Limit Exceeded - Account Suspension Warning\n\nYour cloud storage account has exceeded allocated quotas. All stored documents will be purged within 48 hours unless you verify ownership: http://account-storage-resolver.cloud/renew' },
+  ],
+};
+
 export default function UploadCard({ onResult, onLoading }) {
   const [activeTab, setActiveTab] = useState('image');
   const [file, setFile] = useState(null);
@@ -51,10 +69,30 @@ export default function UploadCard({ onResult, onLoading }) {
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState('');
   const [warming, setWarming] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
   const fileRef = useRef(null);
 
   const tab = TABS.find(t => t.id === activeTab);
   const isText = activeTab === 'sms' || activeTab === 'email' || activeTab === 'url';
+
+  async function loadSample(sample) {
+    setError('');
+    if (sample.path) {
+      setLoadingSample(true);
+      try {
+        const resp = await fetch(sample.path);
+        const blob = await resp.blob();
+        const testFile = new File([blob], sample.filename, { type: blob.type || 'image/jpeg' });
+        setFile(testFile);
+      } catch (err) {
+        console.error('Failed to load sample:', err);
+      } finally {
+        setLoadingSample(false);
+      }
+    } else if (sample.text) {
+      setText(sample.text);
+    }
+  }
 
   function handleFile(f) {
     setFile(f);
@@ -166,6 +204,27 @@ export default function UploadCard({ onResult, onLoading }) {
       </div>
 
       <div className="upload-body">
+        {DEMO_SAMPLES[activeTab] && (
+          <div className="sample-presets-bar">
+            <span className="sample-presets-label">
+              <Sparkles size={13} className="text-neon-cyan" /> Try a sample:
+            </span>
+            <div className="sample-presets-buttons">
+              {DEMO_SAMPLES[activeTab].map((s, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className="sample-preset-btn"
+                  onClick={() => loadSample(s)}
+                  disabled={loadingSample}
+                >
+                  {loadingSample && s.path ? 'Loading…' : s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {isText ? (
           <div className="text-input-area">
             <label className="input-label">
