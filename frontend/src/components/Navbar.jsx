@@ -126,7 +126,7 @@ export default function Navbar() {
                 <User size={13} className="text-neon-cyan" />
               </div>
               <div className="user-meta-info">
-                <span className="user-name-text">{user.name || 'Operative'}</span>
+                <span className="user-name-text">{user.name || 'User'}</span>
                 <span className="user-status-text">
                   <span className="user-status-dot" /> ACTIVE
                 </span>
@@ -182,7 +182,7 @@ export default function Navbar() {
             </Link>
             <Link to="/login" className={mobileActive('/login')} onClick={() => setMobileMenuOpen(false)}>
               <Key size={18} className="text-neon-magenta" />
-              <span>{user ? 'Operative Terminal' : 'Sign In / Register'}</span>
+              <span>{user ? 'My Account' : 'Sign In / Register'}</span>
             </Link>
             <button
               type="button"
@@ -224,7 +224,7 @@ export default function Navbar() {
               </div>
             ) : (
               <Link to="/login" className="mobile-signin-btn" onClick={() => setMobileMenuOpen(false)}>
-                Operative Sign In
+                Sign In / Sign Up
               </Link>
             )}
             <Link to="/analyze" className="btn btn-primary mobile-scan-cta" onClick={() => setMobileMenuOpen(false)}>

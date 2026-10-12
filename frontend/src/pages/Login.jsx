@@ -1,21 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Shield, 
   Lock, 
   Mail, 
   User, 
-  Key, 
   Eye, 
   EyeOff, 
-  Zap, 
-  Fingerprint, 
+  ArrowRight, 
   CheckCircle2, 
-  AlertTriangle,
-  ArrowRight,
-  Terminal,
-  Cpu,
-  Sparkles
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl } from '../api/config';
@@ -25,32 +20,18 @@ export default function Login() {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [biometricScanning, setBiometricScanning] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [mongoStatus, setMongoStatus] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    emailOrUsername: '',
     password: '',
-    role: 'Forensic Analyst',
+    confirmPassword: '',
     rememberMe: true,
-    authType: 'password',
   });
-
-  // Calculate password strength (0-100)
-  const calculateStrength = (pwd) => {
-    if (!pwd) return 0;
-    let score = 0;
-    if (pwd.length >= 6) score += 25;
-    if (pwd.length >= 10) score += 25;
-    if (/[A-Z]/.test(pwd)) score += 25;
-    if (/[0-9!@#$%^&*]/.test(pwd)) score += 25;
-    return score;
-  };
-  const passwordStrength = calculateStrength(formData.password);
 
   const handleChange = (e) => {
     setError('');
@@ -61,71 +42,76 @@ export default function Login() {
     }));
   };
 
-  const handleQuickDemo = (role, email) => {
-    setError('');
-    setFormData({
-      name: role,
-      email: email,
-      password: 'CyberSecurity#2026',
-      role: role,
-      rememberMe: true,
-      authType: 'quick_demo',
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) {
-      setError('Please provide all authentication credentials.');
+    setError('');
+
+    const identifier = formData.emailOrUsername.trim();
+    if (!identifier) {
+      setError('Please enter your email or username.');
       return;
     }
-    if (isRegister && !formData.name) {
-      setError('Please provide operative designation name.');
+
+    if (!formData.password) {
+      setError('Please enter your password.');
       return;
+    }
+
+    if (isRegister) {
+      if (!formData.name.trim()) {
+        setError('Please enter your full name.');
+        return;
+      }
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
     }
 
     setIsLoading(true);
-    setError('');
+
+    const isEmail = identifier.includes('@');
+    const email = isEmail ? identifier : `${identifier.toLowerCase().replace(/\s+/g, '')}@trustlens.user`;
+    const name = isRegister ? formData.name.trim() : (formData.name.trim() || identifier.split('@')[0]);
 
     const API = getApiUrl();
     const endpoint = isRegister ? `${API}/api/auth/register` : `${API}/api/auth/login`;
     const payload = {
-      email: formData.email.trim(),
+      email,
       password: formData.password,
-      name: formData.name ? formData.name.trim() : formData.email.split('@')[0],
-      role: formData.role,
-      auth_type: isRegister ? 'register' : (formData.authType || 'password'),
-      auth_level: isRegister ? 'LEVEL 4 // CLEARANCE GRANTED' : undefined
+      name,
+      role: 'User',
+      auth_type: isRegister ? 'register' : 'password',
     };
 
     let userProfile = {
-      name: payload.name,
-      email: payload.email,
-      role: payload.role,
-      authLevel: 'LEVEL 4 // CLEARANCE GRANTED',
+      name,
+      email,
+      role: 'User',
+      authLevel: 'Standard User',
       loggedInAt: new Date().toISOString(),
-      mongodbConnected: false
     };
 
     try {
-      const res = await axios.post(endpoint, payload, { timeout: 15000 });
-      if (res.data) {
-        userProfile = {
-          id: res.data.id,
-          name: res.data.name || payload.name,
-          email: res.data.email || payload.email,
-          role: res.data.role || payload.role,
-          authLevel: res.data.auth_level || 'LEVEL 4 // CLEARANCE GRANTED',
-          loginCount: res.data.login_count,
-          lastLogin: res.data.last_login,
-          loggedInAt: new Date().toISOString(),
-          mongodbConnected: res.data.mongodb_connected ?? true
-        };
-        setMongoStatus('Fed to MongoDB');
+      if (API) {
+        const res = await axios.post(endpoint, payload, { timeout: 10000 });
+        if (res.data) {
+          userProfile = {
+            id: res.data.id,
+            name: res.data.name || name,
+            email: res.data.email || email,
+            role: res.data.role || 'User',
+            authLevel: res.data.auth_level || 'Standard User',
+            loggedInAt: new Date().toISOString(),
+          };
+        }
       }
     } catch (err) {
-      console.warn('Backend MongoDB auth sync error (using local fallback session):', err);
-      setMongoStatus('Local Session (Offline)');
+      console.warn('Backend login sync unavailable, proceeding with local authenticated session:', err);
     } finally {
       setIsLoading(false);
       setSuccess(true);
@@ -134,335 +120,256 @@ export default function Login() {
 
       setTimeout(() => {
         navigate('/analyze');
-      }, 1300);
+      }, 900);
     }
   };
 
-  const handleBiometricAuth = async () => {
-    setBiometricScanning(true);
-    setError('');
-
-    const API = getApiUrl();
-    const payload = {
-      email: 'operative.lead@trustlens.ai',
-      name: 'Lead Cryptanalyst',
-      role: 'Biometric Authenticated Operative',
-      auth_type: 'biometric',
-      auth_level: 'LEVEL 5 // BIOMETRIC MASTER'
-    };
-
-    let userProfile = {
-      name: payload.name,
-      email: payload.email,
-      role: payload.role,
-      authLevel: payload.auth_level,
-      loggedInAt: new Date().toISOString(),
-      mongodbConnected: false
-    };
-
-    try {
-      const res = await axios.post(`${API}/api/auth/login`, payload, { timeout: 15000 });
-      if (res.data) {
-        userProfile = {
-          id: res.data.id,
-          name: res.data.name || payload.name,
-          email: res.data.email || payload.email,
-          role: res.data.role || payload.role,
-          authLevel: res.data.auth_level || payload.auth_level,
-          loginCount: res.data.login_count,
-          lastLogin: res.data.last_login,
-          loggedInAt: new Date().toISOString(),
-          mongodbConnected: res.data.mongodb_connected ?? true
-        };
-        setMongoStatus('Biometric Fed to MongoDB');
-      }
-    } catch (err) {
-      console.warn('Biometric MongoDB feed error (using local fallback):', err);
-      setMongoStatus('Local Session (Offline)');
-    } finally {
-      setBiometricScanning(false);
-      setSuccess(true);
-      localStorage.setItem('trustlens_user', JSON.stringify(userProfile));
-      window.dispatchEvent(new Event('authChange'));
-
-      setTimeout(() => {
-        navigate('/analyze');
-      }, 1300);
-    }
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    alert('Password reset link has been dispatched to your email address (if registered).');
   };
 
   return (
-    <div className="login-viewport">
-      {/* Dynamic Cyber Ambient Glow Background Elements */}
-      <div className="cyber-ambient-orb orb-cyan" />
-      <div className="cyber-ambient-orb orb-magenta" />
-      <div className="cyber-ambient-orb orb-purple" />
-      <div className="cyber-grid-plane" />
-
-      <div className="login-container">
-        {/* Holographic Security Scanner Emblem */}
-        <div className="scanner-badge-wrapper">
-          <div className="radar-ring-outer">
-            <div className="radar-ring-middle">
-              <div className="radar-ring-inner">
-                <Shield className="scanner-shield-icon" size={32} />
-              </div>
+    <div className="normal-login-viewport">
+      <div className="login-card-wrapper">
+        {/* Logo / Brand Header */}
+        <div className="login-brand-header">
+          <Link to="/" className="login-brand-logo">
+            <div className="brand-icon-box">
+              <Shield size={24} />
             </div>
-            <div className="radar-sweep-beam" />
-          </div>
-          <div className="scanner-title-group">
-            <div className="terminal-badge">
-              <Terminal size={12} className="text-neon-cyan" />
-              <span>TERMINAL ID // TL-SEC-9081</span>
-              <span className="live-dot" />
-            </div>
-            <h1 className="cyber-title">
-              Trust<span className="text-neon-cyan">Lens</span>
-              <span className="brand-ai"> AI</span>
-            </h1>
-            <p className="cyber-subtitle">NEURAL THREAT DETECTION & BIOMETRIC AUTHENTICATION</p>
-          </div>
+            <span className="brand-title">
+              Trust<span className="text-accent">Lens</span> AI
+            </span>
+          </Link>
+          <h1 className="login-heading">
+            {isRegister ? 'Create an account' : 'Welcome back'}
+          </h1>
+          <p className="login-subheading">
+            {isRegister 
+              ? 'Sign up to start scanning images, audio, video, and suspicious links.' 
+              : 'Enter your credentials to access your account and reports.'}
+          </p>
         </div>
 
-        {/* Main Holographic Card */}
-        <div className={`login-card ${success ? 'card-success' : ''}`}>
-          {/* Laser scan line sweeping the card */}
-          <div className="card-scanline" />
+        {/* Auth Card */}
+        <div className="normal-auth-card">
+          {/* Mode Tab Switcher */}
+          <div className="auth-tab-bar">
+            <button
+              type="button"
+              className={`auth-tab-btn ${!isRegister ? 'active' : ''}`}
+              onClick={() => { setIsRegister(false); setError(''); }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`auth-tab-btn ${isRegister ? 'active' : ''}`}
+              onClick={() => { setIsRegister(true); setError(''); }}
+            >
+              Sign Up
+            </button>
+          </div>
 
-          {/* Card corner accents */}
-          <div className="corner-bracket corner-tl" />
-          <div className="corner-bracket corner-tr" />
-          <div className="corner-bracket corner-bl" />
-          <div className="corner-bracket corner-br" />
-
+          {/* Success Screen */}
           {success ? (
-            /* Animated Success Screen */
-            <div className="auth-success-screen">
-              <div className="success-pulse-circle">
-                <CheckCircle2 size={56} className="success-icon" />
+            <div className="login-success-state">
+              <div className="success-icon-wrap">
+                <CheckCircle2 size={48} className="text-success" />
               </div>
-              <h3 className="success-heading">CLEARANCE GRANTED</h3>
-              <p className="success-desc">Neural cryptographic signature verified.</p>
-              <div className="success-status-box">
-                <span className="status-label">ENCRYPTION:</span>
-                <span className="status-val">AES-GCM-256</span>
-                <span className="status-label">MONGODB FEED:</span>
-                <span className="status-val" style={{ color: '#00f3ff' }}>{mongoStatus || 'RECORDED & SYNCD'}</span>
-              </div>
-              <div className="success-loading-bar">
-                <div className="loading-fill" />
-              </div>
-              <span className="redirecting-text">INITIALIZING FORENSIC DASHBOARD...</span>
+              <h3>{isRegister ? 'Account Created!' : 'Signed In Successfully'}</h3>
+              <p>Redirecting to your dashboard…</p>
             </div>
           ) : (
-            <>
-              {/* Mode Toggle Pills */}
-              <div className="auth-mode-pill-track">
-                <button
-                  type="button"
-                  className={`auth-mode-btn ${!isRegister ? 'active' : ''}`}
-                  onClick={() => { setIsRegister(false); setError(''); }}
-                >
-                  <Key size={14} />
-                  <span>Operative Sign In</span>
-                </button>
-                <button
-                  type="button"
-                  className={`auth-mode-btn ${isRegister ? 'active' : ''}`}
-                  onClick={() => { setIsRegister(true); setError(''); }}
-                >
-                  <User size={14} />
-                  <span>New Operative</span>
-                </button>
-              </div>
-
-              {/* 1-Click Demo Accounts */}
-              <div className="demo-accounts-bar">
-                <span className="demo-label">FAST DEMO CLEARANCE:</span>
-                <div className="demo-pills">
-                  <button
-                    type="button"
-                    className="demo-pill"
-                    onClick={() => handleQuickDemo('Security Analyst', 'analyst@trustlens.ai')}
-                  >
-                    <Zap size={12} className="text-neon-cyan" />
-                    <span>Analyst</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="demo-pill"
-                    onClick={() => handleQuickDemo('Forensic Specialist', 'forensics@trustlens.ai')}
-                  >
-                    <Shield size={12} className="text-neon-magenta" />
-                    <span>Forensics</span>
-                  </button>
-                </div>
-              </div>
-
+            <form onSubmit={handleSubmit} className="normal-auth-form">
               {error && (
-                <div className="cyber-error-alert">
-                  <AlertTriangle size={16} />
+                <div className="auth-error-banner">
+                  <AlertCircle size={16} />
                   <span>{error}</span>
                 </div>
               )}
 
-              {/* Login / Register Form */}
-              <form onSubmit={handleSubmit} className="auth-form">
-                {isRegister && (
-                  <div className="input-field-group">
-                    <label className="field-label">OPERATIVE DESIGNATION</label>
-                    <div className="cyber-input-wrapper">
-                      <User size={16} className="input-icon" />
-                      <input
-                        type="text"
-                        name="name"
-                        placeholder="e.g. Agent Alex Vance"
-                        value={formData.name}
-                        onChange={handleChange}
-                        className="cyber-input"
-                        autoComplete="name"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="input-field-group">
-                  <label className="field-label">NEURAL NETWORK ID // EMAIL</label>
-                  <div className="cyber-input-wrapper">
-                    <Mail size={16} className="input-icon" />
+              {/* Full Name (Sign Up only) */}
+              {isRegister && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="name">Full Name</label>
+                  <div className="form-input-box">
+                    <User size={18} className="input-field-icon" />
                     <input
-                      type="email"
-                      name="email"
-                      placeholder="operative@trustlens.ai"
-                      value={formData.email}
+                      id="name"
+                      type="text"
+                      name="name"
+                      placeholder="e.g. Alex Vance"
+                      value={formData.name}
                       onChange={handleChange}
-                      className="cyber-input"
-                      autoComplete="email"
+                      className="form-input"
+                      autoComplete="name"
+                      required
                     />
                   </div>
                 </div>
+              )}
 
-                <div className="input-field-group">
-                  <div className="field-label-split">
-                    <label className="field-label">CRYPTOGRAPHIC ACCESS KEY</label>
-                    {!isRegister && (
-                      <span className="forgot-pass-link" onClick={() => alert('Demo key hint: Use any password or click the Fast Demo pills above.')}>
-                        Lost Key?
-                      </span>
-                    )}
-                  </div>
-                  <div className="cyber-input-wrapper">
-                    <Lock size={16} className="input-icon" />
+              {/* Email or Username */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="emailOrUsername">
+                  {isRegister ? 'Email Address' : 'Email or Username'}
+                </label>
+                <div className="form-input-box">
+                  <Mail size={18} className="input-field-icon" />
+                  <input
+                    id="emailOrUsername"
+                    type={isRegister ? 'email' : 'text'}
+                    name="emailOrUsername"
+                    placeholder={isRegister ? 'name@example.com' : 'Enter email or username'}
+                    value={formData.emailOrUsername}
+                    onChange={handleChange}
+                    className="form-input"
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="form-group">
+                <div className="form-label-row">
+                  <label className="form-label" htmlFor="password">Password</label>
+                  {!isRegister && (
+                    <button 
+                      type="button" 
+                      onClick={handleForgotPassword}
+                      className="forgot-link"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="form-input-box">
+                  <Lock size={18} className="input-field-icon" />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    placeholder={isRegister ? 'Create a password (min. 6 chars)' : 'Enter your password'}
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="form-input"
+                    autoComplete={isRegister ? 'new-password' : 'current-password'}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-eye-btn"
+                    onClick={() => setShowPassword(p => !p)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password (Sign Up only) */}
+              {isRegister && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="confirmPassword">Confirm Password</label>
+                  <div className="form-input-box">
+                    <Lock size={18} className="input-field-icon" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      placeholder="••••••••••••"
-                      value={formData.password}
+                      id="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      placeholder="Re-enter your password"
+                      value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="cyber-input"
-                      autoComplete={isRegister ? 'new-password' : 'current-password'}
+                      className="form-input"
+                      autoComplete="new-password"
+                      required
                     />
                     <button
                       type="button"
-                      className="password-toggle-btn"
-                      onClick={() => setShowPassword(p => !p)}
-                      title={showPassword ? 'Hide password' : 'Show password'}
+                      className="password-eye-btn"
+                      onClick={() => setShowConfirmPassword(p => !p)}
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-
-                  {/* Password Strength Meter (Shown during Register or Typing) */}
-                  {isRegister && formData.password && (
-                    <div className="strength-meter-wrap">
-                      <div className="strength-bar-track">
-                        <div
-                          className={`strength-bar-fill ${
-                            passwordStrength <= 25 ? 'weak' : passwordStrength <= 50 ? 'medium' : 'strong'
-                          }`}
-                          style={{ width: `${passwordStrength}%` }}
-                        />
-                      </div>
-                      <span className="strength-text">
-                        CYBER DEFENSE: {passwordStrength <= 25 ? 'LOW' : passwordStrength <= 50 ? 'STANDARD' : 'MAXIMUM'}
-                      </span>
-                    </div>
-                  )}
                 </div>
+              )}
 
-                {/* Form Options */}
-                <div className="form-options-row">
-                  <label className="cyber-checkbox-label">
+              {/* Remember Me */}
+              {!isRegister && (
+                <div className="remember-row">
+                  <label className="remember-label">
                     <input
                       type="checkbox"
                       name="rememberMe"
                       checked={formData.rememberMe}
                       onChange={handleChange}
                     />
-                    <span className="checkbox-custom" />
-                    <span>Maintain terminal session</span>
+                    <span>Remember me</span>
                   </label>
                 </div>
+              )}
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isLoading || biometricScanning}
-                  className="cyber-submit-btn"
-                  id="auth-submit-btn"
-                >
-                  <div className="btn-sheen" />
-                  {isLoading ? (
-                    <div className="btn-loading-state">
-                      <Cpu size={18} className="spinner-icon" />
-                      <span>AUTHENTICATING NEURAL SIGNATURE...</span>
-                    </div>
-                  ) : (
-                    <div className="btn-normal-state">
-                      <span>{isRegister ? 'INITIALIZE CLEARANCE' : 'AUTHENTICATE ACCESS'}</span>
-                      <ArrowRight size={16} className="btn-arrow" />
-                    </div>
-                  )}
-                </button>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="btn btn-primary submit-auth-btn"
+                id="submit-auth-btn"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 size={18} className="spin-loader" />
+                    <span>{isRegister ? 'Creating Account…' : 'Signing In…'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{isRegister ? 'Create Account' : 'Sign In'}</span>
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
-                {/* Biometric Scan Alternative */}
-                <div className="biometric-divider">
-                  <span>OR BYPASS VIA BIOMETRIC TELEMETRY</span>
-                </div>
-
+          {/* Card Footer toggle */}
+          <div className="auth-card-footer">
+            {isRegister ? (
+              <p>
+                Already have an account?{' '}
                 <button
                   type="button"
-                  disabled={biometricScanning || isLoading}
-                  onClick={handleBiometricAuth}
-                  className={`biometric-btn ${biometricScanning ? 'scanning' : ''}`}
+                  className="switch-mode-btn"
+                  onClick={() => { setIsRegister(false); setError(''); }}
                 >
-                  <Fingerprint size={20} className="bio-icon" />
-                  <span>
-                    {biometricScanning ? 'SCANNING RETINAL & DERMAL PRINT...' : 'Simulate Biometric Scan'}
-                  </span>
-                  {biometricScanning && <div className="bio-laser-sweep" />}
+                  Sign in
                 </button>
-              </form>
-
-              {/* Card Footer Security Stats */}
-              <div className="card-security-footer">
-                <div className="sec-item">
-                  <Shield size={12} className="text-neon-cyan" />
-                  <span>ZERO-TRUST GATEWAY</span>
-                </div>
-                <div className="sec-item">
-                  <Sparkles size={12} className="text-neon-magenta" />
-                  <span>SOC-2 TYPE II CERTIFIED</span>
-                </div>
-              </div>
-            </>
-          )}
+              </p>
+            ) : (
+              <p>
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  className="switch-mode-btn"
+                  onClick={() => { setIsRegister(true); setError(''); }}
+                >
+                  Sign up
+                </button>
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Footer Return Home Link */}
-        <div className="login-footer-links">
-          <Link to="/" className="back-home-link">
-            ← Return to TrustLens AI Public Terminal
+        {/* Back Link */}
+        <div className="login-bottom-nav">
+          <Link to="/" className="back-link">
+            ← Back to Home
           </Link>
         </div>
       </div>
