@@ -136,6 +136,56 @@ def _check_google_safe_browsing(url: str) -> Tuple[Optional[float], Optional[str
     return None, None
 
 
+def _query_ai_text_classifier(text: str) -> Tuple[Optional[float], Optional[str]]:
+    """
+    Hybrid Cloud AI NLP Classifier.
+    Queries Hugging Face Inference API or custom NLP microservice when configured in .env.
+    """
+    hf_key = os.getenv("HUGGINGFACE_API_KEY", "").strip()
+    if hf_key:
+        try:
+            headers = {"Authorization": f"Bearer {hf_key}"}
+            payload = {"inputs": text[:512]}
+            with httpx.Client(timeout=4.5) as client:
+                resp = client.post(
+                    "https://api-inference.huggingface.co/models/mrm8488/bert-tiny-finetuned-sms-spam-detection",
+                    headers=headers,
+                    json=payload,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        items = data[0] if isinstance(data[0], list) else data
+                        for item in items:
+                            lbl = str(item.get("label", "")).lower()
+                            if lbl in ["spam", "phishing", "label_1", "scam"]:
+                                score = float(item.get("score", 0.0))
+                                return score, f"Hugging Face BERT Classifier: {score*100:.1f}% scam probability ({lbl})"
+        except Exception:
+            pass
+
+    nlp_endpoint = os.getenv("NLP_API_ENDPOINT", "").strip()
+    if nlp_endpoint:
+        try:
+            payload = {"text": text}
+            headers = {}
+            nlp_key = os.getenv("NLP_API_KEY", "").strip()
+            if nlp_key:
+                headers["Authorization"] = f"Bearer {nlp_key}"
+            with httpx.Client(timeout=4.0) as client:
+                resp = client.post(nlp_endpoint, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    res = resp.json()
+                    score = res.get("scam_score") or res.get("phishing_probability") or res.get("risk_score")
+                    if score is not None:
+                        norm = float(score) / 100.0 if float(score) > 1.0 else float(score)
+                        return norm, f"External AI NLP Engine: {norm*100:.1f}% scam risk"
+        except Exception:
+            pass
+
+    return None, None
+
+
 def analyze_url(raw_url: str) -> dict:
     url = raw_url.strip()
     # Normalize homoglyphs in URL string
@@ -505,6 +555,16 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
 
         evidence: List[EvidenceItem] = []
 
+        # 0. External AI NLP Classifier (Hugging Face / custom endpoint)
+        ai_nlp_score, ai_nlp_msg = _query_ai_text_classifier(cleaned_text)
+        if ai_nlp_score is not None:
+            evidence.append(EvidenceItem(
+                label="AI Language Model Forensic Classification",
+                value=ai_nlp_msg or f"{ai_nlp_score*100:.1f}% AI scam probability",
+                risk_contribution=ai_nlp_score,
+                severity="high" if ai_nlp_score > 0.65 else "medium" if ai_nlp_score > 0.35 else "low",
+            ))
+
         # 1. Urgency
         urgency_count, urgency_found = _count_matches_boundary(cleaned_text, URGENCY_PHRASES)
         urgency_risk = min(urgency_count * 0.35, 1.0)
@@ -602,6 +662,8 @@ def analyze_text(text: str, mode: str = "sms") -> dict:
 
         # Non-linear combination
         risks = [urgency_risk, lure_risk, threat_risk, req_risk, brand_risk, url_risk, grammar_risk]
+        if ai_nlp_score is not None:
+            risks.append(ai_nlp_score)
         if synergy_boost > 0:
             risks.append(synergy_boost)
 

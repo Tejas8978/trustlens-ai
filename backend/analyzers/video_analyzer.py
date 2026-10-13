@@ -112,8 +112,8 @@ def analyze_video(video_input, filename: str) -> dict:
             fps = 25
         duration = total_frames / fps
 
-        # Sample 2-4 key checkpoints to conserve memory under 512MB RAM
-        sample_count = min(4, max(2, total_frames // 40)) if total_frames > 1 else 1
+        # Sample 4-8 key checkpoints for comprehensive coverage without memory spikes
+        sample_count = min(8, max(4, total_frames // 25)) if total_frames > 3 else max(1, total_frames)
         frame_indices = [int(i * (total_frames - 2) / max(sample_count - 1, 1)) for i in range(sample_count)]
 
         frame_scores = []
