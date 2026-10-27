@@ -82,9 +82,18 @@ def get_data_transforms():
     return train_transform, val_transform
 
 
-def train(data_dir: str, epochs: int = 10, batch_size: int = 32, lr: float = 1e-4, save_path: str = None):
+def train(
+    data_dir: str,
+    epochs: int = 10,
+    batch_size: int = 32,
+    lr: float = 1e-4,
+    save_path: str = None,
+    use_amp: bool = True,
+):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"[TrustLens] Training on device: {device}")
+    is_cuda = device.type == "cuda"
+    enable_amp = is_cuda and use_amp
+    print(f"[TrustLens] Training on device: {device} | Mixed Precision (AMP): {enable_amp}")
 
     if save_path is None:
         save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deepfake_detector.pt")
@@ -99,7 +108,27 @@ def train(data_dir: str, epochs: int = 10, batch_size: int = 32, lr: float = 1e-
 
     train_tf, val_tf = get_data_transforms()
     train_dataset = datasets.ImageFolder(train_dir, transform=train_tf)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=torch.cuda.is_available())
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=0,
+        pin_memory=is_cuda,
+    )
+
+    fake_idx = train_dataset.class_to_idx.get("FAKE", 0)
+    print(f"[TrustLens] Class mapping: FAKE -> 1.0 (idx={fake_idx}), REAL -> 0.0")
+
+    # Class imbalance compensation (pos_weight)
+    num_fake = sum(1 for _, label in train_dataset.samples if label == fake_idx)
+    num_real = len(train_dataset.samples) - num_fake
+    if num_fake > 0 and num_real > 0 and num_fake != num_real:
+        pos_weight_val = float(num_real) / float(num_fake)
+        pos_weight = torch.tensor([pos_weight_val], device=device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        print(f"[TrustLens] Imbalance detected (Real: {num_real}, Fake: {num_fake}). pos_weight set to: {pos_weight_val:.3f}")
+    else:
+        criterion = nn.BCEWithLogitsLoss()
 
     val_loader = None
     if os.path.exists(val_dir):
@@ -109,14 +138,11 @@ def train(data_dir: str, epochs: int = 10, batch_size: int = 32, lr: float = 1e-
     else:
         print(f"[TrustLens] Loaded {len(train_dataset)} training samples.")
 
-    # Initialize model
+    # Initialize model, optimizer, scheduler, and AMP GradScaler
     model = GenerativeArtifactDiscriminator().to(device)
-    criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-
-    fake_idx = train_dataset.class_to_idx.get("FAKE", 0)
-    print(f"[TrustLens] Class mapping: FAKE -> 1.0 (idx={fake_idx}), REAL -> 0.0")
+    scaler = torch.amp.GradScaler("cuda", enabled=enable_amp)
 
     best_val_f1 = -1.0
 
@@ -132,10 +158,13 @@ def train(data_dir: str, epochs: int = 10, batch_size: int = 32, lr: float = 1e-
             targets = (labels == fake_idx).float().unsqueeze(1).to(device)
 
             optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
+            with torch.amp.autocast("cuda", enabled=enable_amp):
+                outputs = model(images)
+                loss = criterion(outputs, targets)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             total_loss += loss.item() * images.size(0)
             preds = (torch.sigmoid(outputs) >= 0.5).float()
@@ -155,7 +184,8 @@ def train(data_dir: str, epochs: int = 10, batch_size: int = 32, lr: float = 1e-
                 for v_images, v_labels in val_loader:
                     v_images = v_images.to(device)
                     v_targets = (v_labels == fake_idx).float().unsqueeze(1).to(device)
-                    v_outputs = model(v_images)
+                    with torch.amp.autocast("cuda", enabled=enable_amp):
+                        v_outputs = model(v_images)
                     v_preds = (torch.sigmoid(v_outputs) >= 0.5).float()
 
                     tp += ((v_preds == 1) & (v_targets == 1)).sum().item()
@@ -197,6 +227,14 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--save_path", type=str, default=None, help="Where to save the .pt model")
+    parser.add_argument("--no_amp", action="store_true", help="Disable Automatic Mixed Precision (AMP)")
     args = parser.parse_args()
 
-    train(args.data_dir, args.epochs, args.batch_size, args.lr, args.save_path)
+    train(
+        args.data_dir,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        save_path=args.save_path,
+        use_amp=not args.no_amp,
+    )

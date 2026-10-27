@@ -15,6 +15,7 @@ import {
   Eye,
   Sliders,
   FileCheck,
+  Film,
 } from 'lucide-react';
 import './ResultPanel.css';
 
@@ -83,6 +84,7 @@ export default function ResultPanel({ result }) {
       summary: result.summary,
       evidence: result.evidence,
       recommendations: result.recommendations,
+      frame_timeline: result.frame_timeline || [],
     };
     const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -161,13 +163,57 @@ export default function ResultPanel({ result }) {
         </div>
       </div>
 
+      {/* ── Video Keyframe Timeline Track ────────────────── */}
+      {result.scan_type === 'video' && result.frame_timeline && result.frame_timeline.length > 0 && (
+        <div className="glass-card video-timeline-card result-section" style={{ animationDelay: '0.06s' }}>
+          <div className="video-timeline-header">
+            <div className="flex items-center gap-2">
+              <Film size={18} className="text-neon-cyan" />
+              <h3 className="visual-title">Sequential Keyframe Timeline Track</h3>
+            </div>
+            <span className="timeline-badge-count font-mono text-xs">
+              {result.frame_timeline.length} sampled checkpoints
+            </span>
+          </div>
+          <p className="timeline-explanation text-xs" style={{ color: 'var(--text-muted)' }}>
+            Temporal trajectory tracking inter-frame stability, texture edge flux, and deepfake cues across playback duration.
+          </p>
+
+          <div className="video-timeline-track">
+            {result.frame_timeline.map((item, idx) => {
+              const statusClass = item.risk_score >= 65 ? 'status-danger' : item.risk_score >= 33 ? 'status-warn' : 'status-safe';
+              return (
+                <div key={idx} className={`timeline-node ${statusClass}`}>
+                  <div className="timeline-bar-wrapper">
+                    <div
+                      className="timeline-score-bar"
+                      style={{ height: `${Math.max(item.risk_score, 14)}%` }}
+                    />
+                  </div>
+                  <div className="timeline-node-dot" />
+                  <div className="timeline-node-info">
+                    <span className="timeline-time">{item.timestamp}s</span>
+                    <span className="timeline-score font-mono">{item.risk_score}%</span>
+                    <span className="timeline-frame-idx">F#{item.frame_idx}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Visual Forensics Inspector (ELA Heatmap) ─────── */}
       {hasEla && (
         <div className="glass-card visual-forensics-card result-section" style={{ animationDelay: '0.08s' }}>
           <div className="visual-forensics-header">
             <div className="flex items-center gap-2">
               <Layers size={18} className="text-neon-cyan" />
-              <h3 className="visual-title">Visual Forensics: Error Level Analysis (ELA)</h3>
+              <h3 className="visual-title">
+                {result.scan_type === 'video'
+                  ? 'Visual Forensics: Peak Risk Keyframe Inspection'
+                  : 'Visual Forensics: Error Level Analysis (ELA)'}
+              </h3>
             </div>
             <div className="visual-controls">
               {hasOriginal && (
@@ -182,7 +228,7 @@ export default function ResultPanel({ result }) {
                 className={`btn-view-toggle ${visualMode === 'ela' ? 'active' : ''}`}
                 onClick={() => setVisualMode('ela')}
               >
-                <Eye size={13} /> ELA Heatmap
+                <Eye size={13} /> {result.scan_type === 'video' ? 'Peak Keyframe' : 'ELA Heatmap'}
               </button>
               {hasOriginal && (
                 <button
@@ -196,7 +242,9 @@ export default function ResultPanel({ result }) {
           </div>
 
           <p className="visual-explanation">
-            Error Level Analysis highlights compression inconsistencies. Brighter regions or high-contrast noise boundaries indicate pixel tampering, spliced objects, or AI diffusion synthesis.
+            {result.scan_type === 'video'
+              ? 'Forensic visual capture of the highest-risk sampled frame. High contrast noise boundaries, texture warping, or unnatural facial artifacts indicate synthetic generation or face-swap tampering.'
+              : 'Error Level Analysis highlights compression inconsistencies. Brighter regions or high-contrast noise boundaries indicate pixel tampering, spliced objects, or AI diffusion synthesis.'}
           </p>
 
           <div className="visual-viewer-container">
