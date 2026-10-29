@@ -55,10 +55,13 @@ export default function Navbar() {
     };
   }, []);
 
+  const [prevPathname, setPrevPathname] = useState(loc.pathname);
+
   // Close mobile drawer on route change
-  useEffect(() => {
+  if (loc.pathname !== prevPathname) {
+    setPrevPathname(loc.pathname);
     setMobileMenuOpen(false);
-  }, [loc.pathname]);
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('trustlens_user');

@@ -58,10 +58,6 @@ export default function RiskGauge({ score = 0, verdict = 'SAFE', typeLabel = 'RI
   const fillFrac  = Math.min(displayScore / 100, 1);
   const fillEnd   = START + RANGE * fillFrac;
 
-  // Circumference of a circle at radius R — used for the ring glow
-  const C = 2 * Math.PI * R;
-  const fillDash = (fillFrac * C * (RANGE / 360)).toFixed(2);
-  const gapDash  = C.toFixed(2);
 
   return (
     <div className={`risk-gauge-wrapper ${meta.cls}`}>

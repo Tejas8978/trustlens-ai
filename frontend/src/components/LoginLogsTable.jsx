@@ -63,8 +63,47 @@ export default function LoginLogsTable() {
   }, []);
 
   useEffect(() => {
-    fetchAuthData();
-  }, [fetchAuthData]);
+    let ignore = false;
+    const API = getApiUrl();
+    async function loadData() {
+      try {
+        const [logsRes, usersRes] = await Promise.allSettled([
+          axios.get(`${API}/api/auth/logs?limit=100`, { timeout: 30000 }),
+          axios.get(`${API}/api/auth/users?limit=50`, { timeout: 30000 }),
+        ]);
+
+        if (ignore) return;
+
+        if (logsRes.status === 'fulfilled') {
+          setLogs(logsRes.value.data || []);
+          setError('');
+        } else {
+          throw logsRes.reason;
+        }
+
+        if (usersRes.status === 'fulfilled') {
+          setUsers(usersRes.value.data || []);
+        }
+      } catch (_err) {
+        if (!ignore) {
+          if (!API) {
+            setError('Could not connect to the local backend. Please verify your FastAPI server is active.');
+          } else {
+            setError('Could not load MongoDB login records. Backend may be waking up (Render takes ~30-50s) or check your connection.');
+          }
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   async function handleClearLogs() {
     if (!window.confirm('Are you sure you want to purge all operative login audit records from MongoDB?')) {

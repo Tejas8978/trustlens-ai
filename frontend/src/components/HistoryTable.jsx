@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Clock, Trash2, RefreshCw, Filter, Eye, Database, X, ShieldAlert } from 'lucide-react';
+import { Clock, Trash2, RefreshCw, Filter, Eye, Database, X } from 'lucide-react';
 import { getApiUrl } from '../api/config';
 import ResultPanel from './ResultPanel';
 import './HistoryTable.css';
@@ -89,7 +89,49 @@ export default function HistoryTable() {
     }
   }, [filter, currentUser]);
 
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  useEffect(() => {
+    let ignore = false;
+    const API = getApiUrl();
+    const userEmail = currentUser?.email || '';
+
+    async function loadData() {
+      try {
+        try {
+          const healthRes = await axios.get(`${API}/health`, { timeout: 8000 });
+          if (!ignore) setDbStatus(healthRes.data?.database || 'connected');
+        } catch {
+          if (!ignore) setDbStatus('disconnected');
+        }
+
+        const params = {
+          ...(filter ? { scan_type: filter } : {}),
+          user_email: userEmail || 'guest',
+        };
+        const res = await axios.get(`${API}/api/history/`, { params, timeout: 60000 });
+        if (!ignore) {
+          setLogs(res.data);
+          setError('');
+        }
+      } catch (_err) {
+        if (!ignore) {
+          if (!API) {
+            setError('Could not connect to the local backend. Please make sure uvicorn is running on port 8000.');
+          } else {
+            setError('Could not load history. Backend may be waking up (Render free instances take ~30-50s) or check backend deployment status.');
+          }
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+    return () => {
+      ignore = true;
+    };
+  }, [filter, currentUser]);
 
   async function deleteScan(id, e) {
     if (e) e.stopPropagation();

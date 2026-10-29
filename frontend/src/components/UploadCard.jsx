@@ -150,7 +150,9 @@ export default function UploadCard({ onResult, onLoading }) {
         const parsed = JSON.parse(stored);
         userEmail = parsed.email || '';
       }
-    } catch {}
+    } catch (_e) {
+      // Ignore JSON parse errors for user session
+    }
 
     onLoading(true);
     try {

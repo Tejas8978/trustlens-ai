@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Settings, CheckCircle2, AlertTriangle, XCircle, RotateCcw, X, ExternalLink, Activity, Server } from 'lucide-react';
-import { getApiUrl, setApiUrl, resetApiUrl, testApiUrl, DEFAULT_FALLBACK_URL } from '../api/config';
+import { useState } from 'react';
+import { CheckCircle2, AlertTriangle, XCircle, RotateCcw, X, ExternalLink, Activity, Server } from 'lucide-react';
+import { getApiUrl, setApiUrl, resetApiUrl, testApiUrl } from '../api/config';
 import './BackendModal.css';
 
 export default function BackendModal({ isOpen, onClose }) {
@@ -8,15 +8,17 @@ export default function BackendModal({ isOpen, onClose }) {
   const [status, setStatus] = useState('idle'); // 'idle' | 'testing' | 'success' | 'warning' | 'error'
   const [statusMsg, setStatusMsg] = useState('');
   const [latency, setLatency] = useState(null);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
-  useEffect(() => {
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setUrl(getApiUrl());
       setStatus('idle');
       setStatusMsg('');
       setLatency(null);
     }
-  }, [isOpen]);
+  }
 
   if (!isOpen) return null;
 

@@ -243,6 +243,8 @@ if __name__ == "__main__":
         test_text_analyzer_word_boundaries,
         test_url_analyzer_subdomain_deception_and_entropy,
         test_history_invalid_id,
+        test_image_analyzer_c2pa_and_synthid,
+        test_url_analyzer_punycode,
         test_auth_quick_demo_login,
         test_password_hashing_and_verification,
     ]
