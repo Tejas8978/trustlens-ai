@@ -1,19 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Shield, Image, Volume2, Video, MessageSquare, Mail, Globe, ArrowRight, Zap, Download, Monitor, Server, CheckCircle2 } from 'lucide-react';
-import { downloadExtensionZip } from '../utils/extensionZip';
+import { Shield, Image, Volume2, Video, MessageSquare, Mail, Globe, ArrowRight, Zap } from 'lucide-react';
 import './Home.css';
-
-function ChromeIcon({ size = 28, className = "" }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="4" />
-      <line x1="21.17" y1="8" x2="12" y2="8" />
-      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
-      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-    </svg>
-  );
-}
 
 const FEATURES = [
   {
@@ -146,49 +133,6 @@ export default function Home() {
               <p className="feature-desc">{f.desc}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Browser Extension Feature Spotlight */}
-      <section className="extension-banner-section container">
-        <div className="extension-spotlight-card glass-card">
-          <div className="spotlight-left">
-            <div className="suite-card-top">
-              <div className="suite-icon-circle text-neon-cyan">
-                <ChromeIcon size={30} />
-              </div>
-              <span className="suite-tag">Manifest V3 · Chrome, Brave & Edge</span>
-            </div>
-            <h2 className="suite-title" style={{ fontSize: '1.75rem', marginTop: '12px' }}>
-              TrustLens AI Browser Extension
-            </h2>
-            <p className="suite-desc" style={{ maxWidth: '640px', marginTop: '8px' }}>
-              Real-time protection that automatically scans images, social media posts, and homoglyph links while you browse feeds on X/Twitter, Reddit, LinkedIn, and the web.
-            </p>
-            <div className="spotlight-features">
-              <span className="spotlight-feat"><CheckCircle2 size={15} className="text-neon-green" /> Real-time feed scan</span>
-              <span className="spotlight-feat"><CheckCircle2 size={15} className="text-neon-green" /> Phishing link quarantine</span>
-              <span className="spotlight-feat"><CheckCircle2 size={15} className="text-neon-green" /> Right-click deepfake inspect</span>
-            </div>
-          </div>
-
-          <div className="spotlight-right">
-            <button 
-              type="button" 
-              className="btn btn-primary spotlight-download-btn"
-              onClick={downloadExtensionZip}
-              id="home-download-ext-btn"
-            >
-              <Download size={18} /> Download Extension (.zip)
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary spotlight-guide-btn"
-              onClick={() => window.dispatchEvent(new CustomEvent('open_extension_modal'))}
-            >
-              View 3-Step Setup Guide &rarr;
-            </button>
-          </div>
         </div>
       </section>
 

@@ -54,27 +54,4 @@ def show():
         st.metric("Active Users", "500+", "+8%")
     
     st.markdown("---")
-    
-    # Real-Time Defense & Browser Extension
-    st.subheader("🛡️ Real-Time Defense Suite")
-    
-    fcol1, fcol2, fcol3 = st.columns(3)
-    with fcol1:
-        st.markdown("""
-        #### 🌐 Chrome & Web Extension
-        Scans X/Twitter, Reddit, and web feeds in real-time. Flags phishing URLs, homoglyph domains, and deepfakes before you click.
-        """)
-        st.caption("📦 Extension package ready in `/extension` folder (Manifest V3).")
-    with fcol2:
-        st.markdown("""
-        #### 📹 Live Video-Call WebRTC
-        Inspect webcam and live Zoom/Teams video streams with 30fps facial landmark tracking and temporal anomaly scoring.
-        """)
-    with fcol3:
-        st.markdown("""
-        #### 🗄️ Enterprise Webhooks
-        Automated ingestion endpoints (`/api/webhooks/slack` & `/api/webhooks/teams`) that quarantine phishing in transit.
-        """)
-    
-    st.markdown("---")
-    st.info("👉 Ready to test media or live video? Go to the **Analyze** page!")
+    st.info("👉 Ready to check media? Go to the **Analyze** page!")

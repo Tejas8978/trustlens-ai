@@ -1,35 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, Zap, Clock, User, LogOut, Key, Menu, X, Settings, Download, Sparkles } from 'lucide-react';
+import { Shield, Zap, Clock, User, LogOut, Key, Menu, X, Settings, Download } from 'lucide-react';
 import BackendModal from './BackendModal';
-import ExtensionModal from './ExtensionModal';
 import './Navbar.css';
-
-function ChromeIcon({ size = 15, className = "" }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="4" />
-      <line x1="21.17" y1="8" x2="12" y2="8" />
-      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
-      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-    </svg>
-  );
-}
 
 export default function Navbar() {
   const loc = useLocation();
   const [user, setUser] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showExtension, setShowExtension] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
-
-  useEffect(() => {
-    const handleOpenExt = () => setShowExtension(true);
-    window.addEventListener('open_extension_modal', handleOpenExt);
-    return () => window.removeEventListener('open_extension_modal', handleOpenExt);
-  }, []);
 
   useEffect(() => {
     const handleBeforeInstall = (e) => {
@@ -117,15 +97,6 @@ export default function Navbar() {
           <Link to="/history" className={active('/history')}>
             <Clock size={15} /> History
           </Link>
-          <button
-            type="button"
-            className="nav-link"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
-            onClick={() => setShowExtension(true)}
-            id="nav-extension-btn"
-          >
-            <ChromeIcon size={15} /> Extension
-          </button>
         </div>
 
         {/* Desktop Action Buttons */}
@@ -212,18 +183,6 @@ export default function Navbar() {
               <Clock size={18} className="text-neon-cyan" />
               <span>Scan Telemetry</span>
             </Link>
-            <button
-              type="button"
-              className="mobile-nav-link"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', width: '100%' }}
-              onClick={() => {
-                setShowExtension(true);
-                setMobileMenuOpen(false);
-              }}
-            >
-              <ChromeIcon size={18} className="text-neon-cyan" />
-              <span>Browser Extension</span>
-            </button>
             <Link to="/login" className={mobileActive('/login')} onClick={() => setMobileMenuOpen(false)}>
               <Key size={18} className="text-neon-magenta" />
               <span>{user ? 'My Account' : 'Sign In / Register'}</span>
@@ -280,9 +239,6 @@ export default function Navbar() {
 
       {/* Global Backend Gateway Settings Modal */}
       <BackendModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
-
-      {/* Chrome & Web Browser Extension Download & Install Modal */}
-      <ExtensionModal isOpen={showExtension} onClose={() => setShowExtension(false)} />
     </nav>
   );
 }

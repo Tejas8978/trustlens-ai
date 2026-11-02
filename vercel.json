@@ -4,6 +4,6 @@
   "outputDirectory": "frontend/dist",
   "installCommand": "npm --prefix frontend install",
   "rewrites": [
-    { "source": "/((?!.*\\.(?:zip|png|jpg|jpeg|svg|ico|webmanifest|json|js|css)$).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

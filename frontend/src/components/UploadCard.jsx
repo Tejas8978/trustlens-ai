@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, Image, Volume2, Video, MessageSquare, Mail, Globe, X, FileText, Loader, AlertTriangle, RotateCw, Settings, Sparkles, Camera } from 'lucide-react';
-import LiveWebRTCScanner from './LiveWebRTCScanner';
+import { Upload, Image, Volume2, Video, MessageSquare, Mail, Globe, X, FileText, Loader, AlertTriangle, RotateCw, Settings, Sparkles } from 'lucide-react';
 import { getApiUrl } from '../api/config';
 import './UploadCard.css';
 
@@ -40,7 +39,6 @@ const TABS = [
   { id: 'image', label: 'Image', icon: <Image size={16} />, accept: 'image/*', endpoint: '/api/analyze/image' },
   { id: 'audio', label: 'Audio', icon: <Volume2 size={16} />, accept: 'audio/*', endpoint: '/api/analyze/audio' },
   { id: 'video', label: 'Video', icon: <Video size={16} />, accept: 'video/*', endpoint: '/api/analyze/video' },
-  { id: 'live',  label: 'Live Stream', icon: <Camera size={16} />, accept: null, endpoint: null },
   { id: 'url',   label: 'URL',   icon: <Globe size={16} />, accept: null, endpoint: '/api/analyze/text' },
   { id: 'sms',   label: 'SMS',   icon: <MessageSquare size={16} />, accept: null, endpoint: '/api/analyze/text' },
   { id: 'email', label: 'Email', icon: <Mail size={16} />, accept: null, endpoint: '/api/analyze/text' },
@@ -241,9 +239,7 @@ export default function UploadCard({ onResult, onLoading }) {
           </div>
         )}
 
-        {activeTab === 'live' ? (
-          <LiveWebRTCScanner onResult={onResult} onLoading={onLoading} />
-        ) : isText ? (
+        {isText ? (
           <div className="text-input-area">
             <label className="input-label">
               {activeTab === 'url' ? '🌐 Inspect Website URL or Link' : activeTab === 'sms' ? '📱 Paste SMS / Text Message' : '📧 Paste Email Content'}
@@ -360,17 +356,15 @@ export default function UploadCard({ onResult, onLoading }) {
           )
         )}
 
-        {activeTab !== 'live' && (
-          <button
-            id="analyze-btn"
-            className="btn btn-primary analyze-btn"
-            onClick={handleAnalyze}
-            disabled={(!isText && !file) || (isText && !text.trim())}
-          >
-            <Upload size={16} />
-            Analyze Now
-          </button>
-        )}
+        <button
+          id="analyze-btn"
+          className="btn btn-primary analyze-btn"
+          onClick={handleAnalyze}
+          disabled={(!isText && !file) || (isText && !text.trim())}
+        >
+          <Upload size={16} />
+          Analyze Now
+        </button>
       </div>
     </div>
   );
