@@ -175,14 +175,14 @@ def verify_user_credentials(
     """
     clean_email = (email or "").strip().lower()
     if not clean_email:
-        return {"ok": False, "error": "Operative email is required"}
+        return {"ok": False, "error": "Email address is required"}
 
     if auth_type in ("biometric", "quick_demo"):
         return {"ok": True}
 
     user = get_user_by_email(clean_email)
     if not user:
-        return {"ok": False, "error": "Operative account not found. Please click 'Sign Up' to create your account first."}
+        return {"ok": False, "error": "No account found with this email. Please check your email or click 'Sign Up' to create an account."}
 
     stored_hash = user.get("password_hash")
     if not stored_hash:
@@ -190,7 +190,7 @@ def verify_user_credentials(
         return {"ok": True}
 
     if not password or not verify_password(password, stored_hash):
-        return {"ok": False, "error": "Invalid operative clearance credentials"}
+        return {"ok": False, "error": "Invalid password. Please check your credentials and try again."}
 
     return {"ok": True}
 
@@ -377,6 +377,96 @@ def delete_all(user_email: Optional[str] = None) -> bool:
 # ---------------------------------------------------------------------------
 # User & Login Telemetry CRUD helpers
 # ---------------------------------------------------------------------------
+
+def create_user(
+    email: str,
+    name: str,
+    password: str,
+    role: str = "User",
+    auth_level: str = "LEVEL 4 // CLEARANCE GRANTED",
+    ip: Optional[str] = "127.0.0.1",
+    user_agent: Optional[str] = "TrustLens Web Terminal",
+) -> dict:
+    """
+    Creates a new user record in MongoDB 'users' collection with secure password hash.
+    Strictly enforces one account per email address:
+    If the email already exists, creation is rejected.
+    """
+    clean_email = (email or "").strip().lower()
+    if not clean_email:
+        return {"ok": False, "error": "Email address is required."}
+
+    # Step 1: Pre-check if email is already registered
+    existing = get_user_by_email(clean_email)
+    if existing:
+        return {
+            "ok": False,
+            "already_exists": True,
+            "error": "This email address is already registered. Only one account is permitted per email address.",
+        }
+
+    now = datetime.now(timezone.utc)
+    user_doc = {
+        "email": clean_email,
+        "name": (name or clean_email.split("@")[0]).strip(),
+        "role": role or "User",
+        "auth_level": auth_level or "LEVEL 4 // CLEARANCE GRANTED",
+        "password_hash": hash_password(password.strip()),
+        "login_count": 1,
+        "created_at": now,
+        "last_login": now,
+        "status": "ACTIVE",
+    }
+
+    try:
+        users_col = get_users_collection()
+        insert_res = users_col.insert_one(user_doc)
+        user_id = str(insert_res.inserted_id)
+
+        # Record initial registration event in login_logs collection
+        logs_col = get_login_logs_collection()
+        log_doc = {
+            "email": clean_email,
+            "name": user_doc["name"],
+            "role": user_doc["role"],
+            "auth_type": "register",
+            "auth_level": user_doc["auth_level"],
+            "client_ip": ip or "127.0.0.1",
+            "user_agent": user_agent or "TrustLens Client",
+            "status": "SUCCESS",
+            "timestamp": now,
+        }
+        log_res = logs_col.insert_one(log_doc)
+
+        print(f"[DB] SUCCESS: Registered new user '{clean_email}' in 'users' and logged in 'login_logs'")
+        return {
+            "ok": True,
+            "id": user_id,
+            "log_id": str(log_res.inserted_id),
+            "email": clean_email,
+            "name": user_doc["name"],
+            "role": user_doc["role"],
+            "auth_level": user_doc["auth_level"],
+            "login_count": 1,
+            "last_login": now.isoformat(),
+            "status": "ACTIVE",
+            "mongodb_connected": True,
+        }
+    except Exception as e:
+        err_str = str(e).lower()
+        if "duplicate" in err_str or "e11000" in err_str:
+            return {
+                "ok": False,
+                "already_exists": True,
+                "error": "This email address is already registered. Only one account is permitted per email address.",
+            }
+        print(f"[DB] ERROR: Could not create user '{clean_email}': {e}")
+        return {
+            "ok": False,
+            "mongodb_connected": False,
+            "error": f"Failed to register account: {e}",
+        }
+
 
 def record_login(
     user_data: dict,

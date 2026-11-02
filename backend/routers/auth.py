@@ -52,12 +52,13 @@ async def login_endpoint(payload: AuthRequest, request: Request):
     Verifies credentials (or biometric / demo clearance), updates operative record in 'users',
     and stores an immutable audit log in 'login_logs'.
     """
-    if not payload.email.strip():
+    clean_email = (payload.email or "").strip().lower()
+    if not clean_email:
         raise HTTPException(status_code=400, detail="Operative email is required")
 
     # Credential verification check
     auth_check = database.verify_user_credentials(
-        email=payload.email,
+        email=clean_email,
         password=payload.password,
         auth_type=payload.auth_type or "password",
     )
@@ -72,7 +73,7 @@ async def login_endpoint(payload: AuthRequest, request: Request):
     user_agent = request.headers.get("user-agent", "TrustLens Web Terminal")
 
     user_info = {
-        "email": payload.email,
+        "email": clean_email,
         "name": payload.name,
         "role": payload.role,
         "auth_level": payload.auth_level,
@@ -89,54 +90,65 @@ async def login_endpoint(payload: AuthRequest, request: Request):
     return UserResponse(**result)
 
 
+@router.get("/check-email")
+def check_email_endpoint(email: str):
+    """
+    Checks if an email is already registered in MongoDB.
+    Returns {"exists": True/False, "email": "..."}
+    """
+    clean_email = (email or "").strip().lower()
+    if not clean_email:
+        return {"exists": False, "email": ""}
+    user = database.get_user_by_email(clean_email)
+    return {"exists": user is not None, "email": clean_email}
+
+
 @router.post("/register", response_model=UserResponse)
 async def register_endpoint(payload: AuthRequest, request: Request):
     """
-    Registers a new operative into MongoDB 'users' with secure password hash
+    Registers a new user into MongoDB 'users' collection with secure password hash
     and logs initial access into 'login_logs'.
+    Strictly enforces only one account per email address.
     """
     clean_email = (payload.email or "").strip().lower()
     if not clean_email:
-        raise HTTPException(status_code=400, detail="Operative email is required")
+        raise HTTPException(status_code=400, detail="Email address is required.")
     if not payload.name or not payload.name.strip():
-        raise HTTPException(status_code=400, detail="Operative designation name is required")
+        raise HTTPException(status_code=400, detail="Full name is required.")
     if not payload.password or len(payload.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
-
-    # Check for existing account
-    existing = database.get_user_by_email(clean_email)
-    if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="An account with this email already exists. Please sign in instead.",
-        )
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
 
     forwarded_for = request.headers.get("x-forwarded-for")
     client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "127.0.0.1")
     user_agent = request.headers.get("user-agent", "TrustLens Web Terminal")
 
-    user_info = {
-        "email": clean_email,
-        "name": payload.name.strip(),
-        "role": payload.role or "User",
-        "auth_level": payload.auth_level or "LEVEL 4 // CLEARANCE GRANTED",
-    }
-
-    result = database.record_login(
-        user_data=user_info,
-        auth_type="register",
+    reg_result = database.create_user(
+        email=clean_email,
+        name=payload.name.strip(),
+        password=payload.password,
+        role=payload.role or "User",
+        auth_level=payload.auth_level or "LEVEL 4 // CLEARANCE GRANTED",
         ip=client_ip,
         user_agent=user_agent,
-        password=payload.password,
     )
 
-    if not result.get("mongodb_connected"):
+    if not reg_result.get("ok"):
+        if reg_result.get("already_exists"):
+            raise HTTPException(
+                status_code=409,
+                detail="This email address is already registered. Only one account is permitted per email. Please sign in instead.",
+            )
+        if not reg_result.get("mongodb_connected", True):
+            raise HTTPException(
+                status_code=503,
+                detail="MongoDB database is currently unreachable. Could not save account to MongoDB Atlas.",
+            )
         raise HTTPException(
-            status_code=503,
-            detail="MongoDB database is currently unreachable. Could not save account to MongoDB Atlas.",
+            status_code=400,
+            detail=reg_result.get("error", "Account registration failed."),
         )
 
-    return UserResponse(**result)
+    return UserResponse(**reg_result)
 
 
 @router.get("/logs", response_model=List[LoginAuditItem])

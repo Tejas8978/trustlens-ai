@@ -24,6 +24,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -35,6 +36,7 @@ export default function Login() {
 
   const handleChange = (e) => {
     setError('');
+    setIsAlreadyRegistered(false);
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -42,13 +44,32 @@ export default function Login() {
     }));
   };
 
+  const handleEmailBlur = async () => {
+    if (!isRegister) return;
+    const clean = formData.emailOrUsername.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!clean || !emailRegex.test(clean)) return;
+
+    try {
+      const API = getApiUrl();
+      const res = await axios.get(`${API}/api/auth/check-email?email=${encodeURIComponent(clean)}`, { timeout: 6000 });
+      if (res.data?.exists) {
+        setError('This email address is already registered. Only one account is permitted per email address.');
+        setIsAlreadyRegistered(true);
+      }
+    } catch {
+      // Background check error ignored; form submit will validate as well
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsAlreadyRegistered(false);
 
     const identifier = formData.emailOrUsername.trim();
     if (!identifier) {
-      setError('Please enter your email or username.');
+      setError(isRegister ? 'Please enter your email address.' : 'Please enter your email or username.');
       return;
     }
 
@@ -57,9 +78,16 @@ export default function Login() {
       return;
     }
 
+    const cleanEmail = identifier.toLowerCase();
+
     if (isRegister) {
       if (!formData.name.trim()) {
         setError('Please enter your full name.');
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        setError('Please enter a valid email address (e.g. name@example.com).');
         return;
       }
       if (formData.password.length < 6) {
@@ -75,7 +103,7 @@ export default function Login() {
     setIsLoading(true);
 
     const isEmail = identifier.includes('@');
-    const email = isEmail ? identifier : `${identifier.toLowerCase().replace(/\s+/g, '')}@trustlens.user`;
+    const email = isEmail ? cleanEmail : `${cleanEmail.replace(/\s+/g, '')}@trustlens.user`;
     const name = isRegister ? formData.name.trim() : (formData.name.trim() || identifier.split('@')[0]);
 
     const API = getApiUrl();
@@ -114,7 +142,10 @@ export default function Login() {
       setIsLoading(false);
       const detail = err.response?.data?.detail;
       const status = err.response?.status;
-      if (detail) {
+      if (status === 409 || (typeof detail === 'string' && detail.toLowerCase().includes('already registered'))) {
+        setError(detail || 'This email address is already registered. Only one account is permitted per email address.');
+        setIsAlreadyRegistered(true);
+      } else if (detail) {
         setError(detail);
       } else if (!status || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
         const isLocal = !API || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
@@ -164,14 +195,14 @@ export default function Login() {
             <button
               type="button"
               className={`auth-tab-btn ${!isRegister ? 'active' : ''}`}
-              onClick={() => { setIsRegister(false); setError(''); }}
+              onClick={() => { setIsRegister(false); setError(''); setIsAlreadyRegistered(false); }}
             >
               Sign In
             </button>
             <button
               type="button"
               className={`auth-tab-btn ${isRegister ? 'active' : ''}`}
-              onClick={() => { setIsRegister(true); setError(''); }}
+              onClick={() => { setIsRegister(true); setError(''); setIsAlreadyRegistered(false); }}
             >
               Sign Up
             </button>
@@ -190,8 +221,23 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="normal-auth-form">
               {error && (
                 <div className="auth-error-banner">
-                  <AlertCircle size={16} />
-                  <span>{error}</span>
+                  <AlertCircle size={18} className="auth-error-icon" />
+                  <div className="auth-error-content">
+                    <span>{error}</span>
+                    {isAlreadyRegistered && (
+                      <button
+                        type="button"
+                        className="error-action-btn"
+                        onClick={() => {
+                          setIsRegister(false);
+                          setError('');
+                          setIsAlreadyRegistered(false);
+                        }}
+                      >
+                        Sign in with this email →
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -230,6 +276,7 @@ export default function Login() {
                     placeholder={isRegister ? 'name@example.com' : 'Enter email or username'}
                     value={formData.emailOrUsername}
                     onChange={handleChange}
+                    onBlur={handleEmailBlur}
                     className="form-input"
                     autoComplete="username"
                     required
@@ -351,7 +398,7 @@ export default function Login() {
                 <button
                   type="button"
                   className="switch-mode-btn"
-                  onClick={() => { setIsRegister(false); setError(''); }}
+                  onClick={() => { setIsRegister(false); setError(''); setIsAlreadyRegistered(false); }}
                 >
                   Sign in
                 </button>
@@ -362,7 +409,7 @@ export default function Login() {
                 <button
                   type="button"
                   className="switch-mode-btn"
-                  onClick={() => { setIsRegister(true); setError(''); }}
+                  onClick={() => { setIsRegister(true); setError(''); setIsAlreadyRegistered(false); }}
                 >
                   Sign up
                 </button>
