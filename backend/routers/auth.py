@@ -3,6 +3,7 @@ Authentication & Operative Session Router
 Feeds login credentials, registrations, and session audit logs into MongoDB.
 """
 from typing import Optional, List
+import re
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 import database
@@ -115,8 +116,21 @@ async def register_endpoint(payload: AuthRequest, request: Request):
         raise HTTPException(status_code=400, detail="Email address is required.")
     if not payload.name or not payload.name.strip():
         raise HTTPException(status_code=400, detail="Full name is required.")
-    if not payload.password or len(payload.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+    
+    pwd = (payload.password or "").strip()
+    if len(pwd) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+
+    has_upper = bool(re.search(r"[A-Z]", pwd))
+    has_lower = bool(re.search(r"[a-z]", pwd))
+    has_digit = bool(re.search(r"[0-9]", pwd))
+    has_special = bool(re.search(r"[^A-Za-z0-9]", pwd))
+
+    if not (has_upper and has_lower and has_digit and has_special):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must combine uppercase letters (A-Z), lowercase letters (a-z), numbers (0-9), and special characters (e.g. !@#$%).",
+        )
 
     forwarded_for = request.headers.get("x-forwarded-for")
     client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "127.0.0.1")

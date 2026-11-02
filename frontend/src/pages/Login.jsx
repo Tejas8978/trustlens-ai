@@ -34,6 +34,16 @@ export default function Login() {
     rememberMe: true,
   });
 
+  const pwd = formData.password || '';
+  const pwdCriteria = {
+    length: pwd.length >= 8,
+    upper: /[A-Z]/.test(pwd),
+    lower: /[a-z]/.test(pwd),
+    number: /[0-9]/.test(pwd),
+    special: /[^A-Za-z0-9]/.test(pwd),
+  };
+  const isPwdStrong = Object.values(pwdCriteria).every(Boolean);
+
   const handleChange = (e) => {
     setError('');
     setIsAlreadyRegistered(false);
@@ -90,8 +100,12 @@ export default function Login() {
         setError('Please enter a valid email address (e.g. name@example.com).');
         return;
       }
-      if (formData.password.length < 6) {
-        setError('Password must be at least 6 characters long.');
+      if (formData.password.length < 8) {
+        setError('Password must be at least 8 characters long.');
+        return;
+      }
+      if (!isPwdStrong) {
+        setError('Password must combine uppercase letters (A-Z), lowercase letters (a-z), numbers (0-9), and special characters (!@#$%).');
         return;
       }
       if (formData.password !== formData.confirmPassword) {
@@ -304,7 +318,7 @@ export default function Login() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     name="password"
-                    placeholder={isRegister ? 'Create a password (min. 6 chars)' : 'Enter your password'}
+                    placeholder={isRegister ? 'Min. 8 chars (A-Z, a-z, 0-9, !@#$)' : 'Enter your password'}
                     value={formData.password}
                     onChange={handleChange}
                     className="form-input"
@@ -321,6 +335,30 @@ export default function Login() {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+
+                {/* Password Strength & Combination Criteria (Sign Up only) */}
+                {isRegister && (
+                  <div className="pwd-criteria-box">
+                    <span className="criteria-heading">Password Requirements:</span>
+                    <div className="criteria-pills">
+                      <span className={`criteria-pill ${pwdCriteria.length ? 'met' : ''}`}>
+                        {pwdCriteria.length ? '✓' : '•'} 8+ Characters
+                      </span>
+                      <span className={`criteria-pill ${pwdCriteria.upper ? 'met' : ''}`}>
+                        {pwdCriteria.upper ? '✓' : '•'} Uppercase (A-Z)
+                      </span>
+                      <span className={`criteria-pill ${pwdCriteria.lower ? 'met' : ''}`}>
+                        {pwdCriteria.lower ? '✓' : '•'} Lowercase (a-z)
+                      </span>
+                      <span className={`criteria-pill ${pwdCriteria.number ? 'met' : ''}`}>
+                        {pwdCriteria.number ? '✓' : '•'} Number (0-9)
+                      </span>
+                      <span className={`criteria-pill ${pwdCriteria.special ? 'met' : ''}`}>
+                        {pwdCriteria.special ? '✓' : '•'} Special (!@#$)
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Confirm Password (Sign Up only) */}

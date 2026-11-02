@@ -286,6 +286,51 @@
   color: var(--text-primary);
 }
 
+/* ── Password Strength & Complexity Criteria ─────────────────── */
+.pwd-criteria-box {
+  background: rgba(10, 16, 32, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.criteria-heading {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.criteria-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.criteria-pill {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s ease;
+}
+
+.criteria-pill.met {
+  background: rgba(0, 255, 170, 0.12);
+  color: #00ffaa;
+  border-color: rgba(0, 255, 170, 0.4);
+  font-weight: 600;
+}
+
 /* ── Remember Me ─────────────────────────────────────────────── */
 .remember-row {
   display: flex;

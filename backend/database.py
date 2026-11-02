@@ -9,6 +9,7 @@ from typing import Optional, List, Dict, Any
 import hashlib
 import hmac
 import secrets
+import re
 
 try:
     import bcrypt
@@ -405,13 +406,29 @@ def create_user(
             "error": "This email address is already registered. Only one account is permitted per email address.",
         }
 
+    # Step 2: Validate password strength (min 8 chars combining upper, lower, number, special)
+    pwd = (password or "").strip()
+    if len(pwd) < 8:
+        return {"ok": False, "error": "Password must be at least 8 characters long."}
+
+    has_upper = bool(re.search(r"[A-Z]", pwd))
+    has_lower = bool(re.search(r"[a-z]", pwd))
+    has_digit = bool(re.search(r"[0-9]", pwd))
+    has_special = bool(re.search(r"[^A-Za-z0-9]", pwd))
+
+    if not (has_upper and has_lower and has_digit and has_special):
+        return {
+            "ok": False,
+            "error": "Password must combine uppercase letters (A-Z), lowercase letters (a-z), numbers (0-9), and special characters (e.g. !@#$%).",
+        }
+
     now = datetime.now(timezone.utc)
     user_doc = {
         "email": clean_email,
         "name": (name or clean_email.split("@")[0]).strip(),
         "role": role or "User",
         "auth_level": auth_level or "LEVEL 4 // CLEARANCE GRANTED",
-        "password_hash": hash_password(password.strip()),
+        "password_hash": hash_password(pwd),
         "login_count": 1,
         "created_at": now,
         "last_login": now,
