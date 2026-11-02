@@ -229,123 +229,135 @@
   .hero-title { font-size: clamp(3rem, 6vw, 5.5rem); }
 }
 
-/* ── Defense & Extension Suite ─────────────────────────────── */
+/* ── Browser Extension Spotlight Banner ──────────────────────── */
 .extension-banner-section {
   padding: calc(var(--space-12) + 12px) var(--space-6);
 }
 
-.defense-suite-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.defense-suite-card {
-  padding: 32px 26px;
+.extension-spotlight-card {
+  padding: clamp(28px, 4vw, 44px);
   border-radius: var(--radius-xl);
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  background: linear-gradient(135deg, rgba(10, 22, 40, 0.85), rgba(5, 13, 26, 0.9));
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.65), 0 0 35px rgba(0, 245, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.extension-spotlight-card::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 250px;
+  height: 250px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 245, 255, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.spotlight-left {
+  display: flex;
   flex-direction: column;
-  gap: 14px;
-  border: 1px solid rgba(0, 245, 255, 0.15);
-  background: rgba(10, 22, 40, 0.7);
-  transition: all var(--ease-normal);
-}
-
-.defense-suite-card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(0, 245, 255, 0.35);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 245, 255, 0.1);
-}
-
-.highlight-suite-card {
-  border-color: rgba(0, 255, 136, 0.3);
-}
-
-.highlight-suite-card:hover {
-  border-color: #00ff88;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 255, 136, 0.15);
+  gap: 12px;
+  flex: 1;
 }
 
 .suite-card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
 }
 
 .suite-icon-circle {
-  width: 52px;
-  height: 52px;
+  width: 54px;
+  height: 54px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 245, 255, 0.08);
+  border: 1px solid rgba(0, 245, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .suite-tag {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
-  padding: 4px 10px;
+  font-size: 0.72rem;
+  padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(0, 245, 255, 0.1);
+  background: rgba(0, 245, 255, 0.12);
   color: var(--cyan);
   border: 1px solid var(--cyan-border);
   font-weight: 700;
-}
-
-.suite-tag.tag-green {
-  background: rgba(0, 255, 136, 0.1);
-  color: #00ff88;
-  border-color: rgba(0, 255, 136, 0.3);
-}
-
-.suite-tag.tag-magenta {
-  background: rgba(255, 0, 110, 0.1);
-  color: #ff006e;
-  border-color: rgba(255, 0, 110, 0.3);
+  letter-spacing: 0.04em;
 }
 
 .suite-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .suite-desc {
-  font-size: 0.92rem;
-  line-height: 1.6;
+  font-size: 0.96rem;
+  line-height: 1.65;
   color: var(--text-secondary);
-  margin-bottom: auto;
 }
 
-.suite-actions {
-  margin-top: 14px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+.spotlight-features {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 8px;
 }
 
-.suite-btn {
-  width: 100%;
-  justify-content: center;
+.spotlight-feat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.spotlight-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 260px;
+  flex-shrink: 0;
+}
+
+.spotlight-download-btn {
+  padding: 14px 24px;
+  font-size: 1rem;
   border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 24px rgba(0, 245, 255, 0.25);
 }
 
-.suite-endpoint-preview {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: #ff006e;
-  background: rgba(255, 0, 110, 0.08);
-  border: 1px solid rgba(255, 0, 110, 0.2);
-  padding: 8px 12px;
-  border-radius: 6px;
+.spotlight-guide-btn {
+  padding: 10px 18px;
+  font-size: 0.86rem;
+  border-radius: var(--radius-full);
   text-align: center;
 }
 
-@media (max-width: 900px) {
-  .defense-suite-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 860px) {
+  .extension-spotlight-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .spotlight-right {
+    min-width: 100%;
   }
 }
+
 

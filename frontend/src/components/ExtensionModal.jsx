@@ -1,5 +1,6 @@
 import React from 'react';
 import { Download, ShieldCheck, CheckCircle2, Copy, ExternalLink, X, AlertTriangle } from 'lucide-react';
+import { downloadExtensionZip } from '../utils/extensionZip';
 import './ExtensionModal.css';
 
 function ChromeIcon({ size = 24, className = "" }) {
@@ -52,14 +53,14 @@ export default function ExtensionModal({ isOpen, onClose }) {
               <h4>TrustLens Shield v1.0.0</h4>
               <p>Works on Google Chrome, Microsoft Edge, Brave, Opera & Chromium browsers.</p>
             </div>
-            <a 
-              href="/trustlens-extension.zip" 
-              download="trustlens-ai-extension.zip"
+            <button 
+              type="button"
+              onClick={downloadExtensionZip}
               className="btn btn-primary ext-download-btn"
               id="download-extension-zip-btn"
             >
               <Download size={18} /> Download Extension (.zip)
-            </a>
+            </button>
           </div>
 
           {/* 3 Step Installation Guide */}

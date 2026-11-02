@@ -18,6 +18,7 @@ export default function App() {
           <Route path="/analyze" element={<Analyze />} />
           <Route path="/history" element={<History />} />
           <Route path="/login"   element={<Login />} />
+          <Route path="*"        element={<Home />} />
         </Routes>
       </main>
     </BrowserRouter>

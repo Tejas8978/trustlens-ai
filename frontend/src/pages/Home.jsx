@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Shield, Image, Volume2, Video, MessageSquare, Mail, Globe, ArrowRight, Zap, Download, Monitor, Server, CheckCircle2 } from 'lucide-react';
+import { downloadExtensionZip } from '../utils/extensionZip';
 import './Home.css';
 
 function ChromeIcon({ size = 28, className = "" }) {
@@ -148,74 +149,45 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Active Defense & Extension Suite */}
+      {/* Browser Extension Feature Spotlight */}
       <section className="extension-banner-section container">
-        <div className="section-header">
-          <p className="section-eyebrow">Enterprise & Browser Protection</p>
-          <h2>Real-Time Defense Beyond the Web App</h2>
-          <p className="section-desc">
-            Deploy TrustLens AI directly into your Chrome browser, live video-calls, and workplace channels.
-          </p>
-        </div>
-
-        <div className="defense-suite-grid">
-          {/* Card 1: Browser Extension */}
-          <div className="defense-suite-card glass-card">
+        <div className="extension-spotlight-card glass-card">
+          <div className="spotlight-left">
             <div className="suite-card-top">
               <div className="suite-icon-circle text-neon-cyan">
-                <ChromeIcon size={28} />
+                <ChromeIcon size={30} />
               </div>
-              <span className="suite-tag">Manifest V3</span>
+              <span className="suite-tag">Manifest V3 · Chrome, Brave & Edge</span>
             </div>
-            <h3 className="suite-title">Browser Extension</h3>
-            <p className="suite-desc">
-              Real-time Chrome, Brave & Edge shield that scans images, text, and homoglyph links while you browse social media feeds.
+            <h2 className="suite-title" style={{ fontSize: '1.75rem', marginTop: '12px' }}>
+              TrustLens AI Browser Extension
+            </h2>
+            <p className="suite-desc" style={{ maxWidth: '640px', marginTop: '8px' }}>
+              Real-time protection that automatically scans images, social media posts, and homoglyph links while you browse feeds on X/Twitter, Reddit, LinkedIn, and the web.
             </p>
-            <div className="suite-actions">
-              <button 
-                type="button" 
-                className="btn btn-primary suite-btn"
-                onClick={() => window.dispatchEvent(new CustomEvent('open_extension_modal'))}
-              >
-                <Download size={16} /> Download Extension (.zip)
-              </button>
+            <div className="spotlight-features">
+              <span className="spotlight-feat"><CheckCircle2 size={15} className="text-neon-green" /> Real-time feed scan</span>
+              <span className="spotlight-feat"><CheckCircle2 size={15} className="text-neon-green" /> Phishing link quarantine</span>
+              <span className="spotlight-feat"><CheckCircle2 size={15} className="text-neon-green" /> Right-click deepfake inspect</span>
             </div>
           </div>
 
-          {/* Card 2: Live WebRTC Stream */}
-          <div className="defense-suite-card glass-card highlight-suite-card">
-            <div className="suite-card-top">
-              <div className="suite-icon-circle text-neon-green">
-                <Monitor size={28} />
-              </div>
-              <span className="suite-tag tag-green">Live WebRTC 30fps</span>
-            </div>
-            <h3 className="suite-title">Live Video-Call Inspection</h3>
-            <p className="suite-desc">
-              Continuous 30fps face-swap inspection for live Zoom, Microsoft Teams, and Google Meet video-call streams.
-            </p>
-            <div className="suite-actions">
-              <Link to="/analyze" className="btn btn-secondary suite-btn">
-                Launch Live Stream <ArrowRight size={16} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 3: Enterprise Webhooks */}
-          <div className="defense-suite-card glass-card">
-            <div className="suite-card-top">
-              <div className="suite-icon-circle text-neon-magenta">
-                <Server size={28} />
-              </div>
-              <span className="suite-tag tag-magenta">Slack & Teams</span>
-            </div>
-            <h3 className="suite-title">Enterprise Webhooks</h3>
-            <p className="suite-desc">
-              Automated ingestion pipelines that block credential-harvesting attacks and phishing in Slack and Microsoft Teams in transit.
-            </p>
-            <div className="suite-actions">
-              <code className="suite-endpoint-preview">POST /api/webhooks/slack</code>
-            </div>
+          <div className="spotlight-right">
+            <button 
+              type="button" 
+              className="btn btn-primary spotlight-download-btn"
+              onClick={downloadExtensionZip}
+              id="home-download-ext-btn"
+            >
+              <Download size={18} /> Download Extension (.zip)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary spotlight-guide-btn"
+              onClick={() => window.dispatchEvent(new CustomEvent('open_extension_modal'))}
+            >
+              View 3-Step Setup Guide &rarr;
+            </button>
           </div>
         </div>
       </section>
