@@ -2,6 +2,13 @@
 Write-Host "Starting TrustLens AI Backend..." -ForegroundColor Cyan
 Set-Location "$PSScriptRoot\backend"
 
+$pyTest = & py -3.13 --version 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Using Python launcher: py -3.13 ($pyTest)" -ForegroundColor Yellow
+    & py -3.13 -m uvicorn main:app --reload --port 8000
+    exit $LASTEXITCODE
+}
+
 $PythonPath = "python3.13"
 $pyCmd = Get-Command $PythonPath -ErrorAction SilentlyContinue
 if (-not $pyCmd) {

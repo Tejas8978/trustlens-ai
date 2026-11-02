@@ -88,39 +88,44 @@ export default function Login() {
       auth_type: isRegister ? 'register' : 'password',
     };
 
-    let userProfile = {
-      name,
-      email,
-      role: 'User',
-      authLevel: 'Standard User',
-      loggedInAt: new Date().toISOString(),
-    };
-
     try {
-      if (API) {
-        const res = await axios.post(endpoint, payload, { timeout: 10000 });
-        if (res.data) {
-          userProfile = {
-            id: res.data.id,
-            name: res.data.name || name,
-            email: res.data.email || email,
-            role: res.data.role || 'User',
-            authLevel: res.data.auth_level || 'Standard User',
-            loggedInAt: new Date().toISOString(),
-          };
-        }
+      const res = await axios.post(endpoint, payload, { timeout: 15000 });
+      if (res.data) {
+        const userProfile = {
+          id: res.data.id,
+          name: res.data.name || name,
+          email: res.data.email || email,
+          role: res.data.role || 'User',
+          authLevel: res.data.auth_level || 'Standard User',
+          loggedInAt: new Date().toISOString(),
+          mongodbConnected: res.data.mongodb_connected ?? true,
+        };
+
+        setIsLoading(false);
+        setSuccess(true);
+        localStorage.setItem('trustlens_user', JSON.stringify(userProfile));
+        window.dispatchEvent(new Event('authChange'));
+
+        setTimeout(() => {
+          navigate('/analyze');
+        }, 900);
       }
     } catch (err) {
-      console.warn('Backend login sync unavailable, proceeding with local authenticated session:', err);
-    } finally {
       setIsLoading(false);
-      setSuccess(true);
-      localStorage.setItem('trustlens_user', JSON.stringify(userProfile));
-      window.dispatchEvent(new Event('authChange'));
-
-      setTimeout(() => {
-        navigate('/analyze');
-      }, 900);
+      const detail = err.response?.data?.detail;
+      const status = err.response?.status;
+      if (detail) {
+        setError(detail);
+      } else if (!status || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
+        const isLocal = !API || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+        setError(
+          isLocal
+            ? 'Cannot connect to backend server on port 8000. Please start your backend (run start-backend.ps1) so your account is saved to MongoDB.'
+            : 'Cannot reach backend server. Please verify your connection or check backend settings.'
+        );
+      } else {
+        setError(err.message || 'Authentication failed. Please try again.');
+      }
     }
   };
 

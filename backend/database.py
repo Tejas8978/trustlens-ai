@@ -37,7 +37,7 @@ load_dotenv()
 _raw_uri = (os.getenv("MONGO_URI") or "").strip()
 MONGO_URI = _raw_uri if _raw_uri else "mongodb://localhost:27017"
 DB_NAME = (os.getenv("MONGO_DB_NAME") or "trustlens").strip()
-MONGO_TIMEOUT_MS = int(os.getenv("MONGO_TIMEOUT_MS", "4000"))
+MONGO_TIMEOUT_MS = int(os.getenv("MONGO_TIMEOUT_MS", "15000"))
 
 _client: Optional[MongoClient] = None
 
@@ -48,7 +48,7 @@ def get_client() -> MongoClient:
     if _client is None:
         kwargs: Dict[str, Any] = {
             "serverSelectionTimeoutMS": MONGO_TIMEOUT_MS,
-            "connectTimeoutMS": 5000,
+            "connectTimeoutMS": 15000,
             "maxPoolSize": 50,
             "minPoolSize": 1,
         }
@@ -182,8 +182,7 @@ def verify_user_credentials(
 
     user = get_user_by_email(clean_email)
     if not user:
-        # First-time operative login with password: allowed, hash will be stored
-        return {"ok": True}
+        return {"ok": False, "error": "Operative account not found. Please click 'Sign Up' to create your account first."}
 
     stored_hash = user.get("password_hash")
     if not stored_hash:

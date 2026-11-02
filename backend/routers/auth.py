@@ -95,19 +95,30 @@ async def register_endpoint(payload: AuthRequest, request: Request):
     Registers a new operative into MongoDB 'users' with secure password hash
     and logs initial access into 'login_logs'.
     """
-    if not payload.email.strip():
+    clean_email = (payload.email or "").strip().lower()
+    if not clean_email:
         raise HTTPException(status_code=400, detail="Operative email is required")
     if not payload.name or not payload.name.strip():
         raise HTTPException(status_code=400, detail="Operative designation name is required")
+    if not payload.password or len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+    # Check for existing account
+    existing = database.get_user_by_email(clean_email)
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="An account with this email already exists. Please sign in instead.",
+        )
 
     forwarded_for = request.headers.get("x-forwarded-for")
     client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "127.0.0.1")
     user_agent = request.headers.get("user-agent", "TrustLens Web Terminal")
 
     user_info = {
-        "email": payload.email,
-        "name": payload.name,
-        "role": payload.role or "Forensic Analyst",
+        "email": clean_email,
+        "name": payload.name.strip(),
+        "role": payload.role or "User",
         "auth_level": payload.auth_level or "LEVEL 4 // CLEARANCE GRANTED",
     }
 
@@ -118,6 +129,12 @@ async def register_endpoint(payload: AuthRequest, request: Request):
         user_agent=user_agent,
         password=payload.password,
     )
+
+    if not result.get("mongodb_connected"):
+        raise HTTPException(
+            status_code=503,
+            detail="MongoDB database is currently unreachable. Could not save account to MongoDB Atlas.",
+        )
 
     return UserResponse(**result)
 
