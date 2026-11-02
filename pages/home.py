@@ -54,4 +54,39 @@ def show():
         st.metric("Active Users", "500+", "+8%")
     
     st.markdown("---")
+    
+    # 08 DEFENSE & FUTURE
+    st.caption("08 DEFENSE & FUTURE")
+    st.header("Future Enhancements")
+    
+    fcol1, fcol2, fcol3 = st.columns(3)
+    with fcol1:
+        st.markdown("""
+        #### 🌐 Browser extension
+        A real-time Chrome / Firefox extension that automatically scans images and links while browsing social-media feeds.
+        """)
+    with fcol2:
+        st.markdown("""
+        #### 📹 Live video-call inspection
+        WebRTC integration to analyze Zoom / Teams streams for real-time face-swap detection.
+        """)
+    with fcol3:
+        st.markdown("""
+        #### 🗄️ Enterprise webhooks
+        Automated ingestion pipelines for Slack and Microsoft Teams that block phishing attacks in transit.
+        """)
+    
+    bcol1, bcol2 = st.columns([1, 1.25])
+    with bcol1:
+        st.markdown("""
+        :red[**Current limitation**]  
+        Aggressive re-compression by social platforms weakens EXIF tags and fine PRNU sensor noise.
+        """)
+    with bcol2:
+        st.markdown("""
+        :green[**Research direction**]  
+        Video temporal 3D-CNNs (Video Swin Transformers) and live C2PA blockchain verification of media authenticity.
+        """)
+    
+    st.markdown("---")
     st.info("👉 Ready to check media? Go to the **Analyze** page!")

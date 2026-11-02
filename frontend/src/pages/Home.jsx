@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Shield, Image, Volume2, Video, MessageSquare, Mail, Globe, ArrowRight, Zap } from 'lucide-react';
+import FutureEnhancements from '../components/FutureEnhancements';
 import './Home.css';
 
 const FEATURES = [
@@ -135,6 +136,9 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* 08 Defense & Future Enhancements */}
+      <FutureEnhancements />
 
       {/* CTA Banner */}
       <section className="cta-banner">

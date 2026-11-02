@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, Zap, Clock, User, LogOut, Key, Menu, X, Settings, Download } from 'lucide-react';
+import { Shield, Zap, Clock, User, LogOut, Key, Menu, X, Settings, Download, Sparkles } from 'lucide-react';
 import BackendModal from './BackendModal';
 import './Navbar.css';
 
@@ -97,6 +97,9 @@ export default function Navbar() {
           <Link to="/history" className={active('/history')}>
             <Clock size={15} /> History
           </Link>
+          <a href="/#defense-future" className="nav-link">
+            <Sparkles size={15} /> Roadmap
+          </a>
         </div>
 
         {/* Desktop Action Buttons */}
@@ -183,6 +186,10 @@ export default function Navbar() {
               <Clock size={18} className="text-neon-cyan" />
               <span>Scan Telemetry</span>
             </Link>
+            <a href="/#defense-future" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+              <Sparkles size={18} className="text-neon-cyan" />
+              <span>Future Roadmap</span>
+            </a>
             <Link to="/login" className={mobileActive('/login')} onClick={() => setMobileMenuOpen(false)}>
               <Key size={18} className="text-neon-magenta" />
               <span>{user ? 'My Account' : 'Sign In / Register'}</span>
