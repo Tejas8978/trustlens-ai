@@ -55,38 +55,26 @@ def show():
     
     st.markdown("---")
     
-    # 08 DEFENSE & FUTURE
-    st.caption("08 DEFENSE & FUTURE")
-    st.header("Future Enhancements")
+    # Real-Time Defense & Browser Extension
+    st.subheader("🛡️ Real-Time Defense Suite")
     
     fcol1, fcol2, fcol3 = st.columns(3)
     with fcol1:
         st.markdown("""
-        #### 🌐 Browser extension
-        A real-time Chrome / Firefox extension that automatically scans images and links while browsing social-media feeds.
+        #### 🌐 Chrome & Web Extension
+        Scans X/Twitter, Reddit, and web feeds in real-time. Flags phishing URLs, homoglyph domains, and deepfakes before you click.
         """)
+        st.caption("📦 Extension package ready in `/extension` folder (Manifest V3).")
     with fcol2:
         st.markdown("""
-        #### 📹 Live video-call inspection
-        WebRTC integration to analyze Zoom / Teams streams for real-time face-swap detection.
+        #### 📹 Live Video-Call WebRTC
+        Inspect webcam and live Zoom/Teams video streams with 30fps facial landmark tracking and temporal anomaly scoring.
         """)
     with fcol3:
         st.markdown("""
-        #### 🗄️ Enterprise webhooks
-        Automated ingestion pipelines for Slack and Microsoft Teams that block phishing attacks in transit.
-        """)
-    
-    bcol1, bcol2 = st.columns([1, 1.25])
-    with bcol1:
-        st.markdown("""
-        :red[**Current limitation**]  
-        Aggressive re-compression by social platforms weakens EXIF tags and fine PRNU sensor noise.
-        """)
-    with bcol2:
-        st.markdown("""
-        :green[**Research direction**]  
-        Video temporal 3D-CNNs (Video Swin Transformers) and live C2PA blockchain verification of media authenticity.
+        #### 🗄️ Enterprise Webhooks
+        Automated ingestion endpoints (`/api/webhooks/slack` & `/api/webhooks/teams`) that quarantine phishing in transit.
         """)
     
     st.markdown("---")
-    st.info("👉 Ready to check media? Go to the **Analyze** page!")
+    st.info("👉 Ready to test media or live video? Go to the **Analyze** page!")

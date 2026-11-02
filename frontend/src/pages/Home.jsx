@@ -1,7 +1,18 @@
 import { Link } from 'react-router-dom';
-import { Shield, Image, Volume2, Video, MessageSquare, Mail, Globe, ArrowRight, Zap } from 'lucide-react';
-import FutureEnhancements from '../components/FutureEnhancements';
+import { Shield, Image, Volume2, Video, MessageSquare, Mail, Globe, ArrowRight, Zap, Download, Monitor, Server, CheckCircle2 } from 'lucide-react';
 import './Home.css';
+
+function ChromeIcon({ size = 28, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="21.17" y1="8" x2="12" y2="8" />
+      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+    </svg>
+  );
+}
 
 const FEATURES = [
   {
@@ -137,8 +148,77 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 08 Defense & Future Enhancements */}
-      <FutureEnhancements />
+      {/* Active Defense & Extension Suite */}
+      <section className="extension-banner-section container">
+        <div className="section-header">
+          <p className="section-eyebrow">Enterprise & Browser Protection</p>
+          <h2>Real-Time Defense Beyond the Web App</h2>
+          <p className="section-desc">
+            Deploy TrustLens AI directly into your Chrome browser, live video-calls, and workplace channels.
+          </p>
+        </div>
+
+        <div className="defense-suite-grid">
+          {/* Card 1: Browser Extension */}
+          <div className="defense-suite-card glass-card">
+            <div className="suite-card-top">
+              <div className="suite-icon-circle text-neon-cyan">
+                <ChromeIcon size={28} />
+              </div>
+              <span className="suite-tag">Manifest V3</span>
+            </div>
+            <h3 className="suite-title">Browser Extension</h3>
+            <p className="suite-desc">
+              Real-time Chrome, Brave & Edge shield that scans images, text, and homoglyph links while you browse social media feeds.
+            </p>
+            <div className="suite-actions">
+              <button 
+                type="button" 
+                className="btn btn-primary suite-btn"
+                onClick={() => window.dispatchEvent(new CustomEvent('open_extension_modal'))}
+              >
+                <Download size={16} /> Download Extension (.zip)
+              </button>
+            </div>
+          </div>
+
+          {/* Card 2: Live WebRTC Stream */}
+          <div className="defense-suite-card glass-card highlight-suite-card">
+            <div className="suite-card-top">
+              <div className="suite-icon-circle text-neon-green">
+                <Monitor size={28} />
+              </div>
+              <span className="suite-tag tag-green">Live WebRTC 30fps</span>
+            </div>
+            <h3 className="suite-title">Live Video-Call Inspection</h3>
+            <p className="suite-desc">
+              Continuous 30fps face-swap inspection for live Zoom, Microsoft Teams, and Google Meet video-call streams.
+            </p>
+            <div className="suite-actions">
+              <Link to="/analyze" className="btn btn-secondary suite-btn">
+                Launch Live Stream <ArrowRight size={16} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 3: Enterprise Webhooks */}
+          <div className="defense-suite-card glass-card">
+            <div className="suite-card-top">
+              <div className="suite-icon-circle text-neon-magenta">
+                <Server size={28} />
+              </div>
+              <span className="suite-tag tag-magenta">Slack & Teams</span>
+            </div>
+            <h3 className="suite-title">Enterprise Webhooks</h3>
+            <p className="suite-desc">
+              Automated ingestion pipelines that block credential-harvesting attacks and phishing in Slack and Microsoft Teams in transit.
+            </p>
+            <div className="suite-actions">
+              <code className="suite-endpoint-preview">POST /api/webhooks/slack</code>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* CTA Banner */}
       <section className="cta-banner">
